@@ -336,6 +336,71 @@ func main() {
 
 ```
 
+#### Get with differing responses
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	cbapi "github.com/InVisionApp/cbapiclient"
+)
+
+type SuccessPayload struct {
+	Foo  string `json:"foo"`
+	Fizz string `json:"fizz"`
+}
+
+type ErrorPayload struct {
+	Reason  string `json:"reason"`
+	Code int `json:"code"`
+}
+
+type ForbiddenPayload struct {
+	Domain  string `json:"domain"`
+	UserID string `json:"userID"`
+}
+
+func main() {
+	ctx := context.Background()
+
+	// make you a client
+	c, err := cbapi.NewClient("http://localhost:8080/foo/bar")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	// make empty struct pointers
+	payload := &SuccessPayload{}
+	errorPayload := &ErrorPayload{}
+	forbiddenPayload := &ForbiddenPayload{}
+	
+	// this gets saturated on error
+	c.WillSaturateOnError(errorPayload)
+	
+	// this gets saturated on 403
+	c.WillSaturateWithStatusCode(403, forbiddenPayload)
+	
+	// we will saturate the response with this GET
+	statusCode, err := c.WillSaturate(payload).Get(ctx)
+	
+	// recycle the request/response
+	c.Recycle()
+
+	log.Println(statusCode)
+	
+	if statusCode == 403 {
+		log.Printf("%+v", forbiddenPayload)
+	} else if c.StatusCodeIsError() {
+		log.Printf("%+v", errorPayload)
+	} else {
+		log.Printf("%+v", payload)
+	}
+}
+
+```
+
 ## Future enhancements
 
 * Add a `statsd` provider using the same convention established in `Defaults`

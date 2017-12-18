@@ -84,6 +84,10 @@ type Client struct {
 	// the number of levels the client is in relation
 	// to the caller
 	nrStackDepth int
+
+	// if the http response code is < 200 or > 299, this flag
+	// gets set true
+	responseIsError bool
 }
 
 var (
@@ -294,10 +298,16 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		// the thing we are about to potentially unmarshal into
 		var unmarshalTo interface{}
 
+		// check if this is an error
+		notSuccess := statusCode < 200 || statusCode > 299
+		if notSuccess {
+			c.responseIsError = true
+		}
+
 		// if there is a custom response for this specific status code
 		if c.CustomPrototypes[statusCode] != nil {
 			unmarshalTo = c.CustomPrototypes[statusCode]
-		} else if statusCode < 200 || statusCode > 299 {
+		} else if notSuccess {
 			// request returned error code
 			unmarshalTo = c.ErrorPrototype
 		} else {
@@ -349,6 +359,12 @@ func (c *Client) RawResponse() []byte {
 	}
 
 	return c.Response.Body()
+}
+
+// StatusCodeIsError is a shortcut to determine if the status code is
+// considered an error
+func (c *Client) StatusCodeIsError() bool {
+	return c.responseIsError
 }
 
 // Recycle will allow fasthttp to recycle the request/response back to their

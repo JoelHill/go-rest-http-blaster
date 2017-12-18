@@ -26,6 +26,7 @@
   * [func (c *Client) Recycle()](#Client.Recycle)
   * [func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) *Client](#Client.SetCircuitBreaker)
   * [func (c *Client) SetContentType(ct string) *Client](#Client.SetContentType)
+  * [func (c *Client) StatusCodeIsError() bool](#Client.StatusCodeIsError)
   * [func (c *Client) WillSaturate(proto interface{}) *Client](#Client.WillSaturate)
   * [func (c *Client) WillSaturateOnError(proto interface{}) *Client](#Client.WillSaturateOnError)
   * [func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{}) *Client](#Client.WillSaturateWithStatusCode)
@@ -39,7 +40,7 @@
 
 
 
-## <a name="SetDefaults">func</a> [SetDefaults](/src/target/client.go?s=4762:4798#L157)
+## <a name="SetDefaults">func</a> [SetDefaults](/src/target/client.go?s=4862:4898#L161)
 ``` go
 func SetDefaults(defaults *Defaults)
 ```
@@ -66,7 +67,7 @@ CircuitBreakerPrototype defines the circuit breaker Execute function signature
 
 
 
-## <a name="Client">type</a> [Client](/src/target/client.go?s=1634:2540#L57)
+## <a name="Client">type</a> [Client](/src/target/client.go?s=1634:2640#L57)
 ``` go
 type Client struct {
     // Prototype will be saturated when the Request succeeds.
@@ -101,7 +102,7 @@ Client encapsulates the http Request functionality
 
 
 
-### <a name="NewClient">func</a> [NewClient](/src/target/client.go?s=5183:5226#L167)
+### <a name="NewClient">func</a> [NewClient](/src/target/client.go?s=5283:5326#L171)
 ``` go
 func NewClient(uri string) (*Client, error)
 ```
@@ -113,7 +114,7 @@ defaults to application/json
 
 
 
-### <a name="Client.Delete">func</a> (\*Client) [Delete](/src/target/client.go?s=13781:13838#L461)
+### <a name="Client.Delete">func</a> (\*Client) [Delete](/src/target/client.go?s=14269:14326#L485)
 ``` go
 func (c *Client) Delete(ctx context.Context) (int, error)
 ```
@@ -122,7 +123,7 @@ Delete performs an HTTP DELETE request
 
 
 
-### <a name="Client.Do">func</a> (\*Client) [Do](/src/target/client.go?s=9546:9635#L324)
+### <a name="Client.Do">func</a> (\*Client) [Do](/src/target/client.go?s=9755:9844#L334)
 ``` go
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error)
 ```
@@ -132,7 +133,7 @@ or from within a circuit breaker
 
 
 
-### <a name="Client.Get">func</a> (\*Client) [Get](/src/target/client.go?s=12991:13045#L433)
+### <a name="Client.Get">func</a> (\*Client) [Get](/src/target/client.go?s=13479:13533#L457)
 ``` go
 func (c *Client) Get(ctx context.Context) (int, error)
 ```
@@ -141,7 +142,7 @@ Get performs an HTTP GET request
 
 
 
-### <a name="Client.Patch">func</a> (\*Client) [Patch](/src/target/client.go?s=13592:13669#L454)
+### <a name="Client.Patch">func</a> (\*Client) [Patch](/src/target/client.go?s=14080:14157#L478)
 ``` go
 func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -150,7 +151,7 @@ Patch performs an HTTP PATCH request with the specified payload
 
 
 
-### <a name="Client.Post">func</a> (\*Client) [Post](/src/target/client.go?s=13174:13250#L440)
+### <a name="Client.Post">func</a> (\*Client) [Post](/src/target/client.go?s=13662:13738#L464)
 ``` go
 func (c *Client) Post(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -159,7 +160,7 @@ Post performs an HTTP POST request with the specified payload
 
 
 
-### <a name="Client.Put">func</a> (\*Client) [Put](/src/target/client.go?s=13382:13457#L447)
+### <a name="Client.Put">func</a> (\*Client) [Put](/src/target/client.go?s=13870:13945#L471)
 ``` go
 func (c *Client) Put(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -168,7 +169,7 @@ Put performs an HTTP PUT request with the specified payload
 
 
 
-### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](/src/target/client.go?s=10089:10126#L346)
+### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](/src/target/client.go?s=10298:10335#L356)
 ``` go
 func (c *Client) RawResponse() []byte
 ```
@@ -178,7 +179,7 @@ in the http response
 
 
 
-### <a name="Client.Recycle">func</a> (\*Client) [Recycle](/src/target/client.go?s=10316:10342#L352)
+### <a name="Client.Recycle">func</a> (\*Client) [Recycle](/src/target/client.go?s=10737:10763#L372)
 ``` go
 func (c *Client) Recycle()
 ```
@@ -188,7 +189,7 @@ appropriate pools, which reduces GC pressure and usually improves performance
 
 
 
-### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](/src/target/client.go?s=12321:12391#L410)
+### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](/src/target/client.go?s=12809:12879#L434)
 ``` go
 func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) *Client
 ```
@@ -198,7 +199,7 @@ wraps the http request.
 
 
 
-### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](/src/target/client.go?s=12759:12809#L421)
+### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](/src/target/client.go?s=13247:13297#L445)
 ``` go
 func (c *Client) SetContentType(ct string) *Client
 ```
@@ -211,7 +212,17 @@ must be a byte slice or it must be convertible to a byte slice
 
 
 
-### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](/src/target/client.go?s=10908:10964#L372)
+### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](/src/target/client.go?s=10506:10547#L366)
+``` go
+func (c *Client) StatusCodeIsError() bool
+```
+StatusCodeIsError is a shortcut to determine if the status code is
+considered an error
+
+
+
+
+### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](/src/target/client.go?s=11396:11452#L396)
 ``` go
 func (c *Client) WillSaturate(proto interface{}) *Client
 ```
@@ -224,7 +235,7 @@ returned in the response instead
 
 
 
-### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](/src/target/client.go?s=11398:11461#L384)
+### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](/src/target/client.go?s=11886:11949#L408)
 ``` go
 func (c *Client) WillSaturateOnError(proto interface{}) *Client
 ```
@@ -238,7 +249,7 @@ as any response with a status code not in the 2XX range.
 
 
 
-### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](/src/target/client.go?s=11993:12079#L398)
+### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](/src/target/client.go?s=12481:12567#L422)
 ``` go
 func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{}) *Client
 ```
