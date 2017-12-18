@@ -221,15 +221,21 @@ type ResponsePayload struct {
 }
 
 func main() {
-	payload := &ResponsePayload{}
 	ctx := context.Background()
 
+	// make you a client
 	c, err := cbapi.NewClient("http://localhost:8080/foo/bar")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
 
+	// make empty struct pointer
+	payload := &ResponsePayload{}
+	
+	// we will saturate the response with this GET
 	statusCode, err := c.WillSaturate(payload).Get(ctx)
+	
+	// recycle the request/response
 	c.Recycle()
 
 	log.Println(statusCode)
@@ -252,14 +258,25 @@ import (
 func main() {
 	ctx := context.Background()
 
+	// make you a client
 	c, err := cbapi.NewClient("http://localhost:8080/foo/bar/xml")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
+	
+	// xml? it could happen ;)
 	c.SetContentType("application/xml")
 
+	// run the request 
 	statusCode, err := c.Get(ctx)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+	
+	// get the raw byte slice 
 	data := c.RawResponse()
+	
+	// recycle the request and response
 	c.Recycle()
 
 	log.Println(statusCode)
@@ -296,14 +313,22 @@ func main() {
 	}
 	ctx := context.Background()
 
+	// make you a client
 	c, err := cbapi.NewClient("http://localhost:8080/foo/bar")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
+	// you can defer the recycle if you need to hang on to the request and response
 	defer c.Recycle()
 
+	// make the empty struct pointer
 	response := &ResponsePayload{}
+	
+	// we will saturate the response with this post
 	statusCode, err := c.WillSaturate(response).Post(ctx, payload)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
 
 	log.Println(statusCode)
 	log.Printf("%+v", response)
@@ -313,4 +338,4 @@ func main() {
 
 ## Future enhancements
 
-* Add a `statsd` provider
+* Add a `statsd` provider using the same convention established in `Defaults`
