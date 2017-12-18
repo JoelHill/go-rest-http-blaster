@@ -304,7 +304,6 @@ func main() {
 
 	response := &ResponsePayload{}
 	statusCode, err := c.WillSaturate(response).Post(ctx, payload)
-	c.Recycle()
 
 	log.Println(statusCode)
 	log.Printf("%+v", response)
