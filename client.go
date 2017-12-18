@@ -344,6 +344,10 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 // RawResponse is a shortcut to access the raw bytes returned
 // in the http response
 func (c *Client) RawResponse() []byte {
+	if c.Response == nil {
+		return []byte{}
+	}
+
 	return c.Response.Body()
 }
 
@@ -351,10 +355,14 @@ func (c *Client) RawResponse() []byte {
 // appropriate pools, which reduces GC pressure and usually improves performance
 func (c *Client) Recycle() {
 	if c.Request != nil {
-		fasthttp.ReleaseRequest(c.Request)
+		junk := c.Request
+		c.Request = nil
+		fasthttp.ReleaseRequest(junk)
 	}
 	if c.Response != nil {
-		fasthttp.ReleaseResponse(c.Response)
+		junk := c.Response
+		c.Response = nil
+		fasthttp.ReleaseResponse(junk)
 	}
 }
 

@@ -1,13 +1,19 @@
 # CBAPIClient
 
-CBAPIClient is an opinionated HTTP client built on top of [fasthttp](https://github.com/valyala/fasthttp) that 
+CBAPIClient is an opinionated **Go** HTTP client built on top of [fasthttp](https://github.com/valyala/fasthttp) that 
 also provides built-in support for the following common InVision design patterns:
 
 * Circuit Breakers
 * New Relic Transactions in Context
 * Logrus logger in Context
 
+Fasthttp has been benchmarked at up to [10 times faster than net/http](https://github.com/valyala/fasthttp#http-client-comparison-with-nethttp).  
+Much of this boost comes from connection pooling and resource reuse.  You can take advantage of those features by 
+[using recycling](#performance) in your code.
+
 ## Usage
+
+Go straight to the [examples](#examples)
 
 ### Setting Defaults
 
@@ -114,7 +120,9 @@ differently depending on what you're trying to do:
     successful if the response code is between 200 and 299, inclusive.**
 * `WillSaturateOnError`
 	* Use this function to saturate the struct you expect when the request fails.  **A request is considered a 
-	failure if the response code is below 200 or above 299**.  Also note that this struct will only be saturated if the actual response is an error.  **`cbapiclient` _will not saturate any response if the error originated at the caller_**.
+	failure if the response code is below 200 or above 299**.  Also note that this struct will only be saturated 
+	if the actual response is an error.  **`cbapiclient` _will not saturate any response if the error originated 
+	at the caller_**.
 * `WillSaturateWithStatusCode`
 	* Use this function to saturate the struct you expect when a specific status code is returned.  
 	Structs provided here take precedence over `WillSaturate` and `WillSaturateOnError`.  For example, if a 
@@ -154,7 +162,11 @@ statusCode, err := client.SetCircuitBreaker(cb).WillSaturate(response).Get()
 ### Request/Response Customization
 
 Since `cbapiclient` is built atop `fasthttp`, you have access to the `Request` and `Response` structs, 
-which are of type `fasthttp.Request` and `fasthttp.Response`, respectively
+which are of type `fasthttp.Request` and `fasthttp.Response`, respectively.
+
+##### Caution
+
+> _The `fasthttp` request and response structs are unavailable after a call to `Recycle` (see below)_
 
 #### Headers
 
@@ -162,7 +174,7 @@ The following headers are set for every request:
 
 * `Request-ID`
 * `Content-Type`
-* `User-Agent`
+* `User-Agent` - the user agent is in the form `{{service name}}-{{namespace}}-{{tenancy}}`
 * `Calling-Service`
 
 Additionally, the `Content-Length` header is set for all requests with an outgoing payload (`POST`, `PUT`, `PATCH`)
@@ -170,10 +182,10 @@ Additionally, the `Content-Length` header is set for all requests with an outgoi
 You can set additional headers by accessing the `Request` property:
 
 ```go
-c.Request
+c.Request.Header.Set("X-Forwarded-For", "127.0.0.1")
 ```
 
-### Performance
+### <a name="performance">Performance</a>
 
 `fasthttp`'s http client is much faster than Go's standard http client, partly because of how it allows for resource 
 pooling, which reduces pressure on the garbage collector and overall memory consumption.  To take advantage of this, 
@@ -189,3 +201,117 @@ defer c.Recycle()
 
 ... // process your request
 ```
+
+### <a name="examples">Examples</a>
+
+#### Get with known payload
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	cbapi "github.com/InVisionApp/cbapiclient"
+)
+
+type ResponsePayload struct {
+	Foo  string `json:"foo"`
+	Fizz string `json:"fizz"`
+}
+
+func main() {
+	payload := &ResponsePayload{}
+	ctx := context.Background()
+
+	c, err := cbapi.NewClient("http://localhost:8080/foo/bar")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	statusCode, err := c.WillSaturate(payload).Get(ctx)
+	c.Recycle()
+
+	log.Println(statusCode)
+	log.Printf("%+v", payload)
+}
+
+```
+
+#### Get with raw bytes
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	cbapi "github.com/InVisionApp/cbapiclient"
+)
+
+func main() {
+	ctx := context.Background()
+
+	c, err := cbapi.NewClient("http://localhost:8080/foo/bar/xml")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+	c.SetContentType("application/xml")
+
+	statusCode, err := c.Get(ctx)
+	data := c.RawResponse()
+	c.Recycle()
+
+	log.Println(statusCode)
+	log.Printf("%+v", data)
+}
+
+```
+
+#### Post with known payload
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	cbapi "github.com/InVisionApp/cbapiclient"
+)
+
+type Payload struct {
+	Foo  string `json:"foo"`
+	Fizz string `json:"fizz"`
+}
+
+type ResponsePayload struct {
+	Bar string `json:"bar"`
+	Baz string `json:"baz"`
+}
+
+func main() {
+	payload := &Payload{
+		Foo: "this is foo",
+		Fizz: "this is fizz",
+	}
+	ctx := context.Background()
+
+	c, err := cbapi.NewClient("http://localhost:8080/foo/bar")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+	defer c.Recycle()
+
+	response := &ResponsePayload{}
+	statusCode, err := c.WillSaturate(response).Post(ctx, payload)
+	c.Recycle()
+
+	log.Println(statusCode)
+	log.Printf("%+v", response)
+}
+
+```
+
+## Future enhancements
+
+* Add a `statsd` provider
