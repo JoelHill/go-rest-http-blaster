@@ -1,0 +1,127 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "+IQN6csaE5uxhZJnulb6uwhVCr4=",
+			"path": "github.com/klauspost/compress/flate",
+			"revision": "ea08389e0dc46025380296f7dd04ab0e8de36adb",
+			"revisionTime": "2017-11-04T14:42:46Z"
+		},
+		{
+			"checksumSHA1": "kWBC7CTgppTdJFXizt4XkURbyCE=",
+			"path": "github.com/klauspost/compress/gzip",
+			"revision": "ea08389e0dc46025380296f7dd04ab0e8de36adb",
+			"revisionTime": "2017-11-04T14:42:46Z"
+		},
+		{
+			"checksumSHA1": "KQ77MI2l4iDQE0Z/DiDeO0S963o=",
+			"path": "github.com/klauspost/compress/zlib",
+			"revision": "ea08389e0dc46025380296f7dd04ab0e8de36adb",
+			"revisionTime": "2017-11-04T14:42:46Z"
+		},
+		{
+			"checksumSHA1": "oZnJ7hI35QaJqMyzayLPq1w0dcU=",
+			"path": "github.com/klauspost/cpuid",
+			"revision": "eae9b3e628d72774e13bdf024e78c0802f85a5b9",
+			"revisionTime": "2017-11-18T20:55:20Z"
+		},
+		{
+			"checksumSHA1": "GUy17UT17gYQH/n1/q4ttdx5qvQ=",
+			"path": "github.com/newrelic/go-agent",
+			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
+			"revisionTime": "2017-11-28T00:03:15Z"
+		},
+		{
+			"checksumSHA1": "e3oGdtK9dMZcco7M1G1OxpDAzKk=",
+			"path": "github.com/newrelic/go-agent/internal",
+			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
+			"revisionTime": "2017-11-28T00:03:15Z"
+		},
+		{
+			"checksumSHA1": "vIJ3Ks0FTwtzyWrLR9hCh3eo0Mw=",
+			"path": "github.com/newrelic/go-agent/internal/cat",
+			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
+			"revisionTime": "2017-11-28T00:03:15Z"
+		},
+		{
+			"checksumSHA1": "mkbupMdy+cF7xyo8xW0A6Bq15k4=",
+			"path": "github.com/newrelic/go-agent/internal/jsonx",
+			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
+			"revisionTime": "2017-11-28T00:03:15Z"
+		},
+		{
+			"checksumSHA1": "ywxlVKtGArJ2vDfH1rAqEFwSGds=",
+			"path": "github.com/newrelic/go-agent/internal/logger",
+			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
+			"revisionTime": "2017-11-28T00:03:15Z"
+		},
+		{
+			"checksumSHA1": "UrKUDjmw5vdff+izBrdZRiChPSI=",
+			"path": "github.com/newrelic/go-agent/internal/sysinfo",
+			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
+			"revisionTime": "2017-11-28T00:03:15Z"
+		},
+		{
+			"checksumSHA1": "aG3o84sokPnpJn0hOoiPbiPvOkA=",
+			"path": "github.com/newrelic/go-agent/internal/utilization",
+			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
+			"revisionTime": "2017-11-28T00:03:15Z"
+		},
+		{
+			"checksumSHA1": "gcLub3oB+u4QrOJZcYmk/y2AP4k=",
+			"path": "github.com/nu7hatch/gouuid",
+			"revision": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3",
+			"revisionTime": "2013-12-21T20:05:32Z"
+		},
+		{
+			"checksumSHA1": "ySaT8G3I3y4MmnoXOYAAX0rC+p8=",
+			"path": "github.com/sirupsen/logrus",
+			"revision": "d682213848ed68c0a260ca37d6dd5ace8423f5ba",
+			"revisionTime": "2017-12-05T20:32:29Z"
+		},
+		{
+			"checksumSHA1": "LTOa3BADhwvT0wFCknPueQALm8I=",
+			"path": "github.com/valyala/bytebufferpool",
+			"revision": "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7",
+			"revisionTime": "2016-08-17T18:16:52Z"
+		},
+		{
+			"checksumSHA1": "eq08pJz4K+i3qiS39A7ENDBMoF0=",
+			"path": "github.com/valyala/fasthttp",
+			"revision": "e5f51c11919d4f66400334047b897ef0a94c6f3c",
+			"revisionTime": "2017-12-07T12:09:41Z"
+		},
+		{
+			"checksumSHA1": "nFdyJk6jdHzVNgEMdjDuWMk4z5o=",
+			"path": "github.com/valyala/fasthttp/fasthttputil",
+			"revision": "e5f51c11919d4f66400334047b897ef0a94c6f3c",
+			"revisionTime": "2017-12-07T12:09:41Z"
+		},
+		{
+			"checksumSHA1": "YXXy4b1yOQx/iL3Icv6svTmcGss=",
+			"path": "github.com/valyala/fasthttp/stackless",
+			"revision": "e5f51c11919d4f66400334047b897ef0a94c6f3c",
+			"revisionTime": "2017-12-07T12:09:41Z"
+		},
+		{
+			"checksumSHA1": "X1NTlfcau2XcV6WtAHF6b/DECOA=",
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "94eea52f7b742c7cbe0b03b22f0c4c8631ece122",
+			"revisionTime": "2017-11-28T01:43:40Z"
+		},
+		{
+			"checksumSHA1": "VaWt1KQODK3z6ymfOyyxHPgzHis=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "d5840adf789d732bc8b00f37b26ca956a7cc8e79",
+			"revisionTime": "2017-12-14T14:09:03Z"
+		},
+		{
+			"checksumSHA1": "du9BFcn4Qlm/4H3jlRBGGH43aQI=",
+			"path": "golang.org/x/sys/windows",
+			"revision": "d5840adf789d732bc8b00f37b26ca956a7cc8e79",
+			"revisionTime": "2017-12-14T14:09:03Z"
+		}
+	],
+	"rootPath": "github.com/InVisionApp/cbapiclient"
+}
