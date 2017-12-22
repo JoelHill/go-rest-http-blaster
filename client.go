@@ -12,9 +12,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/newrelic/go-agent"
 	"github.com/nu7hatch/gouuid"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
 

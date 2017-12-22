@@ -75,10 +75,128 @@
 			"revisionTime": "2013-12-21T20:05:32Z"
 		},
 		{
-			"checksumSHA1": "ySaT8G3I3y4MmnoXOYAAX0rC+p8=",
+			"path": "github.com/onsi/ginkgo",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/config",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/codelocation",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/containernode",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/failer",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/leafnodes",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/remote",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/spec",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/spec_iterator",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/specrunner",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/suite",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/testingtproxy",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/internal/writer",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/reporters",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/reporters/stenographer",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/ginkgo/types",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/format",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/internal/assertion",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/internal/asyncassertion",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/internal/oraclematcher",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/internal/testingtsupport",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/matchers",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/matchers/support/goraph/bipartitegraph",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/matchers/support/goraph/edge",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/matchers/support/goraph/node",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/matchers/support/goraph/util",
+			"revision": ""
+		},
+		{
+			"path": "github.com/onsi/gomega/types",
+			"revision": ""
+		},
+		{
 			"path": "github.com/sirupsen/logrus",
-			"revision": "d682213848ed68c0a260ca37d6dd5ace8423f5ba",
-			"revisionTime": "2017-12-05T20:32:29Z"
+			"revision": ""
 		},
 		{
 			"checksumSHA1": "LTOa3BADhwvT0wFCknPueQALm8I=",
@@ -111,6 +229,18 @@
 			"revisionTime": "2017-11-28T01:43:40Z"
 		},
 		{
+			"path": "golang.org/x/net/html",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/net/html/atom",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/net/html/charset",
+			"revision": ""
+		},
+		{
 			"checksumSHA1": "VaWt1KQODK3z6ymfOyyxHPgzHis=",
 			"path": "golang.org/x/sys/unix",
 			"revision": "d5840adf789d732bc8b00f37b26ca956a7cc8e79",
@@ -121,6 +251,70 @@
 			"path": "golang.org/x/sys/windows",
 			"revision": "d5840adf789d732bc8b00f37b26ca956a7cc8e79",
 			"revisionTime": "2017-12-14T14:09:03Z"
+		},
+		{
+			"path": "golang.org/x/text/encoding",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/charmap",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/htmlindex",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/internal",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/internal/identifier",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/japanese",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/korean",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/simplifiedchinese",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/traditionalchinese",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/encoding/unicode",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/internal/tag",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/internal/utf8internal",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/language",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/runes",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/text/transform",
+			"revision": ""
+		},
+		{
+			"path": "gopkg.in/yaml.v2",
+			"revision": ""
 		}
 	],
 	"rootPath": "github.com/InVisionApp/cbapiclient"
