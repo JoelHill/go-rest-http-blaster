@@ -350,6 +350,11 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 		return http.StatusInternalServerError, errors.New("endpoint for Request not set")
 	}
 
+	// recycle artifacts unless explicitly retained
+	if !c.keepFastHttpArtifacts {
+		defer c.Recycle()
+	}
+
 	if c.cb == nil {
 		return c.doInternal(ctx, payload)
 	}
@@ -358,11 +363,6 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 		c.nrStackDepth++
 		return c.doInternal(ctx, payload)
 	})
-
-	// recycle artifacts unless explicitly retained
-	if !c.keepFastHttpArtifacts {
-		defer c.Recycle()
-	}
 
 	return sc.(int), err
 }
