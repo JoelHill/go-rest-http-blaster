@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/newrelic/go-agent"
 	"github.com/nu7hatch/gouuid"
@@ -79,6 +80,10 @@ type Client struct {
 	// will be saturated when specific response codes
 	// are returned from the endpoint
 	CustomPrototypes map[int]interface{}
+
+	// Duration is the length of time the request took to run.
+	// Obviously this only has value after the request is run.
+	Duration time.Duration
 
 	// Internal circuit breaker
 	cb CircuitBreakerPrototype
@@ -343,6 +348,12 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 // Do will prepare the request and either run it directly
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
+
+	// start the clock
+	defer func(c *Client, begin time.Time) {
+		c.Duration = time.Now().Sub(begin)
+	}(c, time.Now())
+
 	c.nrStackDepth++
 	c.Request.Header.SetMethod(method)
 
