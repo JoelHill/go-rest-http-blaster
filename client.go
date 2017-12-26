@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/newrelic/go-agent"
@@ -72,10 +73,17 @@ type Client struct {
 	// Response is the underlying fasthttp Response
 	Response *fasthttp.Response
 
+	// NRTxnName is the explicit New Relic transaction name
+	NRTxnName string
+
 	// CustomPrototypes is a map of interfaces that
 	// will be saturated when specific response codes
 	// are returned from the endpoint
 	CustomPrototypes map[int]interface{}
+
+	// Duration is the length of time the request took to run.
+	// Obviously this only has value after the request is run.
+	Duration time.Duration
 
 	// Internal circuit breaker
 	cb CircuitBreakerPrototype
@@ -88,6 +96,9 @@ type Client struct {
 	// if the http response code is < 200 or > 299, this flag
 	// gets set true
 	responseIsError bool
+
+	// do not automatically recycle the fasthttp request and response
+	keepFastHttpArtifacts bool
 }
 
 var (
@@ -204,13 +215,18 @@ func (c *Client) applyPreflightHeaders(ctx context.Context) {
 // segment for the request.  It will reuse a New Relic transaction
 // provided in SetDefaults.  Otherwise it will start a new transaction.
 func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
-	c.nrStackDepth++
-
-	pc, _, _, _ := runtime.Caller(c.nrStackDepth)
-	funcPath := strings.Split(runtime.FuncForPC(pc).Name(), "/")
 
 	// get new relic transaction from context
 	txn, _ := pkgNRTxnProviderFunc(ctx)
+
+	if c.NRTxnName != "" {
+		return newrelic.StartSegment(txn, c.NRTxnName)
+	}
+
+	c.nrStackDepth++
+	pc, _, _, _ := runtime.Caller(c.nrStackDepth)
+	funcPath := strings.Split(runtime.FuncForPC(pc).Name(), "/")
+
 	return newrelic.StartSegment(txn, strings.Split(funcPath[len(funcPath)-1], ".")[1]+c.Endpoint.RawPath)
 }
 
@@ -332,11 +348,22 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 // Do will prepare the request and either run it directly
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
+
+	// start the clock
+	defer func(c *Client, begin time.Time) {
+		c.Duration = time.Now().Sub(begin)
+	}(c, time.Now())
+
 	c.nrStackDepth++
 	c.Request.Header.SetMethod(method)
 
 	if c.Endpoint == nil {
 		return http.StatusInternalServerError, errors.New("endpoint for Request not set")
+	}
+
+	// recycle artifacts unless explicitly retained
+	if !c.keepFastHttpArtifacts {
+		defer c.Recycle()
 	}
 
 	if c.cb == nil {
@@ -433,6 +460,23 @@ func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{}) *
 // wraps the http request.
 func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) *Client {
 	c.cb = cb
+
+	return c
+}
+
+// SetNRTxnName will set the New Relic transaction name
+func (c *Client) SetNRTxnName(name string) *Client {
+	c.NRTxnName = name
+
+	return c
+}
+
+// KeepArtifacts will keep the FastHTTP request and response from being
+// recycled into the pool.  This will allow direct access to the FastHTTP
+// objects.  This function MUST be called if you want to access the
+// response raw bytes returned by RawResponse()
+func (c *Client) KeepArtifacts() *Client {
+	c.keepFastHttpArtifacts = true
 
 	return c
 }
