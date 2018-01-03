@@ -19,6 +19,9 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+//go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
+//go:generate counterfeiter -o ./fakes/fake_iclient.go . IClient
+
 const (
 	requestIDHeader      = "Request-ID"
 	callingServiceHeader = "Calling-Service"
@@ -52,6 +55,25 @@ type Defaults struct {
 	// If this function is not set, the client will generate
 	// a new UUID for the Request id.
 	RequestIDProviderFunc func(ctx context.Context) (string, bool)
+}
+
+type IClient interface {
+	RawResponse() []byte
+	StatusCodeIsError() bool
+	Recycle()
+	WillSaturate(proto interface{}) *Client
+	WillSaturateOnError(proto interface{}) *Client
+	WillSaturateWithStatusCode(statusCode int, proto interface{}) *Client
+	SetCircuitBreaker(cb CircuitBreakerPrototype) *Client
+	SetNRTxnName(name string) *Client
+	KeepArtifacts() *Client
+	SetContentType(ct string) *Client
+	Do(ctx context.Context, method string, payload interface{}) (int, error)
+	Get(ctx context.Context) (int, error)
+	Post(ctx context.Context, payload interface{}) (int, error)
+	Put(ctx context.Context, payload interface{}) (int, error)
+	Patch(ctx context.Context, payload interface{}) (int, error)
+	Delete(ctx context.Context) (int, error)
 }
 
 // Client encapsulates the http Request functionality
