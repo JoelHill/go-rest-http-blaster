@@ -114,6 +114,12 @@ type FakeIClient struct {
 	setContentTypeArgsForCall []struct {
 		ct string
 	}
+	SetHeaderStub        func(key string, value string)
+	setHeaderMutex       sync.RWMutex
+	setHeaderArgsForCall []struct {
+		key   string
+		value string
+	}
 	SetNRTxnNameStub        func(name string)
 	setNRTxnNameMutex       sync.RWMutex
 	setNRTxnNameArgsForCall []struct {
@@ -563,6 +569,31 @@ func (fake *FakeIClient) SetContentTypeArgsForCall(i int) string {
 	return fake.setContentTypeArgsForCall[i].ct
 }
 
+func (fake *FakeIClient) SetHeader(key string, value string) {
+	fake.setHeaderMutex.Lock()
+	fake.setHeaderArgsForCall = append(fake.setHeaderArgsForCall, struct {
+		key   string
+		value string
+	}{key, value})
+	fake.recordInvocation("SetHeader", []interface{}{key, value})
+	fake.setHeaderMutex.Unlock()
+	if fake.SetHeaderStub != nil {
+		fake.SetHeaderStub(key, value)
+	}
+}
+
+func (fake *FakeIClient) SetHeaderCallCount() int {
+	fake.setHeaderMutex.RLock()
+	defer fake.setHeaderMutex.RUnlock()
+	return len(fake.setHeaderArgsForCall)
+}
+
+func (fake *FakeIClient) SetHeaderArgsForCall(i int) (string, string) {
+	fake.setHeaderMutex.RLock()
+	defer fake.setHeaderMutex.RUnlock()
+	return fake.setHeaderArgsForCall[i].key, fake.setHeaderArgsForCall[i].value
+}
+
 func (fake *FakeIClient) SetNRTxnName(name string) {
 	fake.setNRTxnNameMutex.Lock()
 	fake.setNRTxnNameArgsForCall = append(fake.setNRTxnNameArgsForCall, struct {
@@ -723,6 +754,8 @@ func (fake *FakeIClient) Invocations() map[string][][]interface{} {
 	defer fake.setCircuitBreakerMutex.RUnlock()
 	fake.setContentTypeMutex.RLock()
 	defer fake.setContentTypeMutex.RUnlock()
+	fake.setHeaderMutex.RLock()
+	defer fake.setHeaderMutex.RUnlock()
 	fake.setNRTxnNameMutex.RLock()
 	defer fake.setNRTxnNameMutex.RUnlock()
 	fake.statusCodeIsErrorMutex.RLock()

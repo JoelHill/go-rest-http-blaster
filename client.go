@@ -79,6 +79,7 @@ type IClient interface {
 	RawResponse() []byte
 	SetCircuitBreaker(cb CircuitBreakerPrototype)
 	SetContentType(ct string)
+	SetHeader(key string, value string)
 	SetNRTxnName(name string)
 	StatusCodeIsError() bool
 	WillSaturate(proto interface{})
@@ -455,6 +456,12 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 	return sc.(int), err
 }
 
+// KeepRawResponse will cause the raw bytes from the http response
+// to be retained
+func (c *Client) KeepRawResponse() {
+	c.keepRawResponse = true
+}
+
 // RawResponse is a shortcut to access the raw bytes returned
 // in the http response
 func (c *Client) RawResponse() []byte {
@@ -527,7 +534,19 @@ func (c *Client) SetContentType(ct string) {
 
 	if ct != jsonType {
 		delete(c.headers, acceptHeader)
+	} else {
+		c.headers[acceptHeader] = jsonType
 	}
+}
+
+// SetHeader allows for custom http headers
+func (c *Client) SetHeader(key string, value string) {
+	if key == contentTypeHeader {
+		c.SetContentType(value)
+		return
+	}
+
+	c.headers[key] = value
 }
 
 //
