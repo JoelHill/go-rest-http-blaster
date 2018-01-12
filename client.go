@@ -147,6 +147,8 @@ var (
 	pkgCtxLoggerProviderFunc func(ctx context.Context) (*logrus.Entry, bool)
 	pkgRequestIDProviderFunc func(cxt context.Context) (string, bool)
 	pkgOnce                  sync.Once
+
+	envHttpMocking = "MOCKING_HTTP"
 )
 
 //
@@ -217,6 +219,14 @@ func SetDefaults(defaults *Defaults) {
 
 // this creates a http client with sensible defaults
 func newHttpClient() *http.Client {
+	// all http mocking libraries can override the default http client,
+	// but many cannot override clients that have been tuned with custom
+	// transports.  If this env var is set, we return the standard
+	// http client.
+	if os.Getenv(envHttpMocking) != "" {
+		return http.DefaultClient
+	}
+
 	client := &http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
