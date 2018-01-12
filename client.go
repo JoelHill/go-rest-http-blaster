@@ -281,6 +281,15 @@ func NewClient(uri string) (*Client, error) {
 func (c *Client) applyContextDependentHeaders(ctx context.Context) {
 	if requestID, ok := pkgRequestIDProviderFunc(ctx); ok {
 		c.headers[requestIDHeader] = requestID
+	} else {
+		// some apis will fail if the request id is not set,
+		// so we will stub one in here
+		reqUUID, _ := uuid.NewV4()
+		requestID = reqUUID.String()
+		logrus.WithFields(logrus.Fields{
+			"error_message": "REQUEST ID ERROR: the provided request ID provider is not returning a request id",
+		}).Errorf("REQUEST ID: %s", requestID)
+		c.headers[requestIDHeader] = requestID
 	}
 }
 
