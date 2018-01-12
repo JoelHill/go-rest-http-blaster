@@ -1,15 +1,10 @@
 # CBAPIClient
 
-CBAPIClient is an opinionated **Go** HTTP client built on top of [fasthttp](https://github.com/valyala/fasthttp) that 
-also provides built-in support for the following common InVision design patterns:
+CBAPIClient is an opinionated **Go** HTTP client that provides built-in support for the following common InVision design patterns:
 
 * Circuit Breakers
 * New Relic Transactions in Context
 * Logrus logger in Context
-
-Fasthttp has been benchmarked at up to [10 times faster than net/http](https://github.com/valyala/fasthttp#http-client-comparison-with-nethttp).  
-Much of this boost comes from connection pooling and resource reuse.  You can take advantage of those features by 
-[using recycling](#performance) in your code.
 
 ## Usage
 
@@ -139,34 +134,7 @@ differently depending on what you're trying to do:
 * `Patch` - perform an HTTP PATCH request with an outgoing payload
 * `Delete` - perform an HTTP DELETE request with no outgoing payload
 
-#### Fluent Interface
-
-For convenience, some functions can be chained to provide a fluent interface:
-
-```go
-var cb *CircuitBreaker
-
-// circuit breaker is created ...
-
-client, err := cbapiclient.NewClient("https://path.to.my.endpoint/foo/bar")
-if err != nil {
-	log.Fatalln(err.Error())
-}
-
-// create the empty struct to be saturated
-response := &MyStruct{}
-
-statusCode, err := client.SetCircuitBreaker(cb).WillSaturate(response).Get()
-```
-
 ### Request/Response Customization
-
-Since `cbapiclient` is built atop `fasthttp`, you have access to the `Request` and `Response` structs, 
-which are of type `fasthttp.Request` and `fasthttp.Response`, respectively.
-
-##### Caution
-
-> _The `fasthttp` request and response structs are unavailable after a call to `Recycle` (see below)_
 
 #### Headers
 
@@ -179,27 +147,10 @@ The following headers are set for every request:
 
 Additionally, the `Content-Length` header is set for all requests with an outgoing payload (`POST`, `PUT`, `PATCH`)
 
-You can set additional headers by accessing the `Request` property:
+You can set additional headers by using the `SetHeader` function:
 
 ```go
-c.Request.Header.Set("X-Forwarded-For", "127.0.0.1")
-```
-
-### <a name="performance">Performance</a>
-
-`fasthttp`'s http client is much faster than Go's standard http client, partly because of how it allows for resource 
-pooling, which reduces pressure on the garbage collector and overall memory consumption.  To take advantage of this, 
-you can defer the `cbapiclient`'s `Recycle` function:
-
-```go
-c, err := cbapiclient.NewClient("https://path.to.my.endpoint/foo/bar")
-if err != nil {
-	log.Fatalln(err.Error())
-}
-
-defer c.Recycle()
-
-... // process your request
+c.SetHeader("X-Forwarded-For", "127.0.0.1")
 ```
 
 ### <a name="examples">Examples</a>
@@ -233,10 +184,8 @@ func main() {
 	payload := &ResponsePayload{}
 	
 	// we will saturate the response with this GET
-	statusCode, err := c.WillSaturate(payload).Get(ctx)
-	
-	// recycle the request/response
-	c.Recycle()
+	c.WillSaturate(payload)
+	statusCode, err := c.Get(ctx)
 
 	log.Println(statusCode)
 	log.Printf("%+v", payload)
@@ -266,6 +215,7 @@ func main() {
 	
 	// xml? it could happen ;)
 	c.SetContentType("application/xml")
+	c.KeepRawResponse()
 
 	// run the request 
 	statusCode, err := c.Get(ctx)
@@ -275,9 +225,6 @@ func main() {
 	
 	// get the raw byte slice 
 	data := c.RawResponse()
-	
-	// recycle the request and response
-	c.Recycle()
 
 	log.Println(statusCode)
 	log.Printf("%+v", data)
@@ -318,14 +265,13 @@ func main() {
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
-	// you can defer the recycle if you need to hang on to the request and response
-	defer c.Recycle()
 
 	// make the empty struct pointer
 	response := &ResponsePayload{}
 	
 	// we will saturate the response with this post
-	statusCode, err := c.WillSaturate(response).Post(ctx, payload)
+	c.WillSaturate(response)
+	statusCode, err := c.Post(ctx, payload)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -383,10 +329,8 @@ func main() {
 	c.WillSaturateWithStatusCode(403, forbiddenPayload)
 	
 	// we will saturate the response with this GET
-	statusCode, err := c.WillSaturate(payload).Get(ctx)
-	
-	// recycle the request/response
-	c.Recycle()
+	c.WillSaturate(payload)
+	statusCode, err := c.Get(ctx)
 
 	log.Println(statusCode)
 	

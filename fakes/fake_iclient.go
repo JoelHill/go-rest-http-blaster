@@ -9,102 +9,18 @@ import (
 )
 
 type FakeIClient struct {
-	RawResponseStub        func() []byte
-	rawResponseMutex       sync.RWMutex
-	rawResponseArgsForCall []struct{}
-	rawResponseReturns     struct {
-		result1 []byte
+	DeleteStub        func(ctx context.Context) (int, error)
+	deleteMutex       sync.RWMutex
+	deleteArgsForCall []struct {
+		ctx context.Context
 	}
-	rawResponseReturnsOnCall map[int]struct {
-		result1 []byte
+	deleteReturns struct {
+		result1 int
+		result2 error
 	}
-	StatusCodeIsErrorStub        func() bool
-	statusCodeIsErrorMutex       sync.RWMutex
-	statusCodeIsErrorArgsForCall []struct{}
-	statusCodeIsErrorReturns     struct {
-		result1 bool
-	}
-	statusCodeIsErrorReturnsOnCall map[int]struct {
-		result1 bool
-	}
-	RecycleStub             func()
-	recycleMutex            sync.RWMutex
-	recycleArgsForCall      []struct{}
-	WillSaturateStub        func(proto interface{}) *cbapiclient.Client
-	willSaturateMutex       sync.RWMutex
-	willSaturateArgsForCall []struct {
-		proto interface{}
-	}
-	willSaturateReturns struct {
-		result1 *cbapiclient.Client
-	}
-	willSaturateReturnsOnCall map[int]struct {
-		result1 *cbapiclient.Client
-	}
-	WillSaturateOnErrorStub        func(proto interface{}) *cbapiclient.Client
-	willSaturateOnErrorMutex       sync.RWMutex
-	willSaturateOnErrorArgsForCall []struct {
-		proto interface{}
-	}
-	willSaturateOnErrorReturns struct {
-		result1 *cbapiclient.Client
-	}
-	willSaturateOnErrorReturnsOnCall map[int]struct {
-		result1 *cbapiclient.Client
-	}
-	WillSaturateWithStatusCodeStub        func(statusCode int, proto interface{}) *cbapiclient.Client
-	willSaturateWithStatusCodeMutex       sync.RWMutex
-	willSaturateWithStatusCodeArgsForCall []struct {
-		statusCode int
-		proto      interface{}
-	}
-	willSaturateWithStatusCodeReturns struct {
-		result1 *cbapiclient.Client
-	}
-	willSaturateWithStatusCodeReturnsOnCall map[int]struct {
-		result1 *cbapiclient.Client
-	}
-	SetCircuitBreakerStub        func(cb cbapiclient.CircuitBreakerPrototype) *cbapiclient.Client
-	setCircuitBreakerMutex       sync.RWMutex
-	setCircuitBreakerArgsForCall []struct {
-		cb cbapiclient.CircuitBreakerPrototype
-	}
-	setCircuitBreakerReturns struct {
-		result1 *cbapiclient.Client
-	}
-	setCircuitBreakerReturnsOnCall map[int]struct {
-		result1 *cbapiclient.Client
-	}
-	SetNRTxnNameStub        func(name string) *cbapiclient.Client
-	setNRTxnNameMutex       sync.RWMutex
-	setNRTxnNameArgsForCall []struct {
-		name string
-	}
-	setNRTxnNameReturns struct {
-		result1 *cbapiclient.Client
-	}
-	setNRTxnNameReturnsOnCall map[int]struct {
-		result1 *cbapiclient.Client
-	}
-	KeepArtifactsStub        func() *cbapiclient.Client
-	keepArtifactsMutex       sync.RWMutex
-	keepArtifactsArgsForCall []struct{}
-	keepArtifactsReturns     struct {
-		result1 *cbapiclient.Client
-	}
-	keepArtifactsReturnsOnCall map[int]struct {
-		result1 *cbapiclient.Client
-	}
-	SetContentTypeStub        func(ct string) *cbapiclient.Client
-	setContentTypeMutex       sync.RWMutex
-	setContentTypeArgsForCall []struct {
-		ct string
-	}
-	setContentTypeReturns struct {
-		result1 *cbapiclient.Client
-	}
-	setContentTypeReturnsOnCall map[int]struct {
-		result1 *cbapiclient.Client
+	deleteReturnsOnCall map[int]struct {
+		result1 int
+		result2 error
 	}
 	DoStub        func(ctx context.Context, method string, payload interface{}) (int, error)
 	doMutex       sync.RWMutex
@@ -134,9 +50,12 @@ type FakeIClient struct {
 		result1 int
 		result2 error
 	}
-	PostStub        func(ctx context.Context, payload interface{}) (int, error)
-	postMutex       sync.RWMutex
-	postArgsForCall []struct {
+	KeepRawResponseStub        func()
+	keepRawResponseMutex       sync.RWMutex
+	keepRawResponseArgsForCall []struct{}
+	PostStub                   func(ctx context.Context, payload interface{}) (int, error)
+	postMutex                  sync.RWMutex
+	postArgsForCall            []struct {
 		ctx     context.Context
 		payload interface{}
 	}
@@ -176,446 +95,114 @@ type FakeIClient struct {
 		result1 int
 		result2 error
 	}
-	DeleteStub        func(ctx context.Context) (int, error)
-	deleteMutex       sync.RWMutex
-	deleteArgsForCall []struct {
-		ctx context.Context
+	RawResponseStub        func() []byte
+	rawResponseMutex       sync.RWMutex
+	rawResponseArgsForCall []struct{}
+	rawResponseReturns     struct {
+		result1 []byte
 	}
-	deleteReturns struct {
-		result1 int
-		result2 error
+	rawResponseReturnsOnCall map[int]struct {
+		result1 []byte
 	}
-	deleteReturnsOnCall map[int]struct {
-		result1 int
-		result2 error
+	SetCircuitBreakerStub        func(cb cbapiclient.CircuitBreakerPrototype)
+	setCircuitBreakerMutex       sync.RWMutex
+	setCircuitBreakerArgsForCall []struct {
+		cb cbapiclient.CircuitBreakerPrototype
+	}
+	SetContentTypeStub        func(ct string)
+	setContentTypeMutex       sync.RWMutex
+	setContentTypeArgsForCall []struct {
+		ct string
+	}
+	SetHeaderStub        func(key string, value string)
+	setHeaderMutex       sync.RWMutex
+	setHeaderArgsForCall []struct {
+		key   string
+		value string
+	}
+	SetNRTxnNameStub        func(name string)
+	setNRTxnNameMutex       sync.RWMutex
+	setNRTxnNameArgsForCall []struct {
+		name string
+	}
+	StatusCodeIsErrorStub        func() bool
+	statusCodeIsErrorMutex       sync.RWMutex
+	statusCodeIsErrorArgsForCall []struct{}
+	statusCodeIsErrorReturns     struct {
+		result1 bool
+	}
+	statusCodeIsErrorReturnsOnCall map[int]struct {
+		result1 bool
+	}
+	WillSaturateStub        func(proto interface{})
+	willSaturateMutex       sync.RWMutex
+	willSaturateArgsForCall []struct {
+		proto interface{}
+	}
+	WillSaturateOnErrorStub        func(proto interface{})
+	willSaturateOnErrorMutex       sync.RWMutex
+	willSaturateOnErrorArgsForCall []struct {
+		proto interface{}
+	}
+	WillSaturateWithStatusCodeStub        func(statusCode int, proto interface{})
+	willSaturateWithStatusCodeMutex       sync.RWMutex
+	willSaturateWithStatusCodeArgsForCall []struct {
+		statusCode int
+		proto      interface{}
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeIClient) RawResponse() []byte {
-	fake.rawResponseMutex.Lock()
-	ret, specificReturn := fake.rawResponseReturnsOnCall[len(fake.rawResponseArgsForCall)]
-	fake.rawResponseArgsForCall = append(fake.rawResponseArgsForCall, struct{}{})
-	fake.recordInvocation("RawResponse", []interface{}{})
-	fake.rawResponseMutex.Unlock()
-	if fake.RawResponseStub != nil {
-		return fake.RawResponseStub()
+func (fake *FakeIClient) Delete(ctx context.Context) (int, error) {
+	fake.deleteMutex.Lock()
+	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
+	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
+		ctx context.Context
+	}{ctx})
+	fake.recordInvocation("Delete", []interface{}{ctx})
+	fake.deleteMutex.Unlock()
+	if fake.DeleteStub != nil {
+		return fake.DeleteStub(ctx)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fake.rawResponseReturns.result1
+	return fake.deleteReturns.result1, fake.deleteReturns.result2
 }
 
-func (fake *FakeIClient) RawResponseCallCount() int {
-	fake.rawResponseMutex.RLock()
-	defer fake.rawResponseMutex.RUnlock()
-	return len(fake.rawResponseArgsForCall)
+func (fake *FakeIClient) DeleteCallCount() int {
+	fake.deleteMutex.RLock()
+	defer fake.deleteMutex.RUnlock()
+	return len(fake.deleteArgsForCall)
 }
 
-func (fake *FakeIClient) RawResponseReturns(result1 []byte) {
-	fake.RawResponseStub = nil
-	fake.rawResponseReturns = struct {
-		result1 []byte
-	}{result1}
+func (fake *FakeIClient) DeleteArgsForCall(i int) context.Context {
+	fake.deleteMutex.RLock()
+	defer fake.deleteMutex.RUnlock()
+	return fake.deleteArgsForCall[i].ctx
 }
 
-func (fake *FakeIClient) RawResponseReturnsOnCall(i int, result1 []byte) {
-	fake.RawResponseStub = nil
-	if fake.rawResponseReturnsOnCall == nil {
-		fake.rawResponseReturnsOnCall = make(map[int]struct {
-			result1 []byte
+func (fake *FakeIClient) DeleteReturns(result1 int, result2 error) {
+	fake.DeleteStub = nil
+	fake.deleteReturns = struct {
+		result1 int
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeIClient) DeleteReturnsOnCall(i int, result1 int, result2 error) {
+	fake.DeleteStub = nil
+	if fake.deleteReturnsOnCall == nil {
+		fake.deleteReturnsOnCall = make(map[int]struct {
+			result1 int
+			result2 error
 		})
 	}
-	fake.rawResponseReturnsOnCall[i] = struct {
-		result1 []byte
-	}{result1}
-}
-
-func (fake *FakeIClient) StatusCodeIsError() bool {
-	fake.statusCodeIsErrorMutex.Lock()
-	ret, specificReturn := fake.statusCodeIsErrorReturnsOnCall[len(fake.statusCodeIsErrorArgsForCall)]
-	fake.statusCodeIsErrorArgsForCall = append(fake.statusCodeIsErrorArgsForCall, struct{}{})
-	fake.recordInvocation("StatusCodeIsError", []interface{}{})
-	fake.statusCodeIsErrorMutex.Unlock()
-	if fake.StatusCodeIsErrorStub != nil {
-		return fake.StatusCodeIsErrorStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.statusCodeIsErrorReturns.result1
-}
-
-func (fake *FakeIClient) StatusCodeIsErrorCallCount() int {
-	fake.statusCodeIsErrorMutex.RLock()
-	defer fake.statusCodeIsErrorMutex.RUnlock()
-	return len(fake.statusCodeIsErrorArgsForCall)
-}
-
-func (fake *FakeIClient) StatusCodeIsErrorReturns(result1 bool) {
-	fake.StatusCodeIsErrorStub = nil
-	fake.statusCodeIsErrorReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *FakeIClient) StatusCodeIsErrorReturnsOnCall(i int, result1 bool) {
-	fake.StatusCodeIsErrorStub = nil
-	if fake.statusCodeIsErrorReturnsOnCall == nil {
-		fake.statusCodeIsErrorReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.statusCodeIsErrorReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *FakeIClient) Recycle() {
-	fake.recycleMutex.Lock()
-	fake.recycleArgsForCall = append(fake.recycleArgsForCall, struct{}{})
-	fake.recordInvocation("Recycle", []interface{}{})
-	fake.recycleMutex.Unlock()
-	if fake.RecycleStub != nil {
-		fake.RecycleStub()
-	}
-}
-
-func (fake *FakeIClient) RecycleCallCount() int {
-	fake.recycleMutex.RLock()
-	defer fake.recycleMutex.RUnlock()
-	return len(fake.recycleArgsForCall)
-}
-
-func (fake *FakeIClient) WillSaturate(proto interface{}) *cbapiclient.Client {
-	fake.willSaturateMutex.Lock()
-	ret, specificReturn := fake.willSaturateReturnsOnCall[len(fake.willSaturateArgsForCall)]
-	fake.willSaturateArgsForCall = append(fake.willSaturateArgsForCall, struct {
-		proto interface{}
-	}{proto})
-	fake.recordInvocation("WillSaturate", []interface{}{proto})
-	fake.willSaturateMutex.Unlock()
-	if fake.WillSaturateStub != nil {
-		return fake.WillSaturateStub(proto)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.willSaturateReturns.result1
-}
-
-func (fake *FakeIClient) WillSaturateCallCount() int {
-	fake.willSaturateMutex.RLock()
-	defer fake.willSaturateMutex.RUnlock()
-	return len(fake.willSaturateArgsForCall)
-}
-
-func (fake *FakeIClient) WillSaturateArgsForCall(i int) interface{} {
-	fake.willSaturateMutex.RLock()
-	defer fake.willSaturateMutex.RUnlock()
-	return fake.willSaturateArgsForCall[i].proto
-}
-
-func (fake *FakeIClient) WillSaturateReturns(result1 *cbapiclient.Client) {
-	fake.WillSaturateStub = nil
-	fake.willSaturateReturns = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) WillSaturateReturnsOnCall(i int, result1 *cbapiclient.Client) {
-	fake.WillSaturateStub = nil
-	if fake.willSaturateReturnsOnCall == nil {
-		fake.willSaturateReturnsOnCall = make(map[int]struct {
-			result1 *cbapiclient.Client
-		})
-	}
-	fake.willSaturateReturnsOnCall[i] = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) WillSaturateOnError(proto interface{}) *cbapiclient.Client {
-	fake.willSaturateOnErrorMutex.Lock()
-	ret, specificReturn := fake.willSaturateOnErrorReturnsOnCall[len(fake.willSaturateOnErrorArgsForCall)]
-	fake.willSaturateOnErrorArgsForCall = append(fake.willSaturateOnErrorArgsForCall, struct {
-		proto interface{}
-	}{proto})
-	fake.recordInvocation("WillSaturateOnError", []interface{}{proto})
-	fake.willSaturateOnErrorMutex.Unlock()
-	if fake.WillSaturateOnErrorStub != nil {
-		return fake.WillSaturateOnErrorStub(proto)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.willSaturateOnErrorReturns.result1
-}
-
-func (fake *FakeIClient) WillSaturateOnErrorCallCount() int {
-	fake.willSaturateOnErrorMutex.RLock()
-	defer fake.willSaturateOnErrorMutex.RUnlock()
-	return len(fake.willSaturateOnErrorArgsForCall)
-}
-
-func (fake *FakeIClient) WillSaturateOnErrorArgsForCall(i int) interface{} {
-	fake.willSaturateOnErrorMutex.RLock()
-	defer fake.willSaturateOnErrorMutex.RUnlock()
-	return fake.willSaturateOnErrorArgsForCall[i].proto
-}
-
-func (fake *FakeIClient) WillSaturateOnErrorReturns(result1 *cbapiclient.Client) {
-	fake.WillSaturateOnErrorStub = nil
-	fake.willSaturateOnErrorReturns = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) WillSaturateOnErrorReturnsOnCall(i int, result1 *cbapiclient.Client) {
-	fake.WillSaturateOnErrorStub = nil
-	if fake.willSaturateOnErrorReturnsOnCall == nil {
-		fake.willSaturateOnErrorReturnsOnCall = make(map[int]struct {
-			result1 *cbapiclient.Client
-		})
-	}
-	fake.willSaturateOnErrorReturnsOnCall[i] = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) WillSaturateWithStatusCode(statusCode int, proto interface{}) *cbapiclient.Client {
-	fake.willSaturateWithStatusCodeMutex.Lock()
-	ret, specificReturn := fake.willSaturateWithStatusCodeReturnsOnCall[len(fake.willSaturateWithStatusCodeArgsForCall)]
-	fake.willSaturateWithStatusCodeArgsForCall = append(fake.willSaturateWithStatusCodeArgsForCall, struct {
-		statusCode int
-		proto      interface{}
-	}{statusCode, proto})
-	fake.recordInvocation("WillSaturateWithStatusCode", []interface{}{statusCode, proto})
-	fake.willSaturateWithStatusCodeMutex.Unlock()
-	if fake.WillSaturateWithStatusCodeStub != nil {
-		return fake.WillSaturateWithStatusCodeStub(statusCode, proto)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.willSaturateWithStatusCodeReturns.result1
-}
-
-func (fake *FakeIClient) WillSaturateWithStatusCodeCallCount() int {
-	fake.willSaturateWithStatusCodeMutex.RLock()
-	defer fake.willSaturateWithStatusCodeMutex.RUnlock()
-	return len(fake.willSaturateWithStatusCodeArgsForCall)
-}
-
-func (fake *FakeIClient) WillSaturateWithStatusCodeArgsForCall(i int) (int, interface{}) {
-	fake.willSaturateWithStatusCodeMutex.RLock()
-	defer fake.willSaturateWithStatusCodeMutex.RUnlock()
-	return fake.willSaturateWithStatusCodeArgsForCall[i].statusCode, fake.willSaturateWithStatusCodeArgsForCall[i].proto
-}
-
-func (fake *FakeIClient) WillSaturateWithStatusCodeReturns(result1 *cbapiclient.Client) {
-	fake.WillSaturateWithStatusCodeStub = nil
-	fake.willSaturateWithStatusCodeReturns = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) WillSaturateWithStatusCodeReturnsOnCall(i int, result1 *cbapiclient.Client) {
-	fake.WillSaturateWithStatusCodeStub = nil
-	if fake.willSaturateWithStatusCodeReturnsOnCall == nil {
-		fake.willSaturateWithStatusCodeReturnsOnCall = make(map[int]struct {
-			result1 *cbapiclient.Client
-		})
-	}
-	fake.willSaturateWithStatusCodeReturnsOnCall[i] = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) SetCircuitBreaker(cb cbapiclient.CircuitBreakerPrototype) *cbapiclient.Client {
-	fake.setCircuitBreakerMutex.Lock()
-	ret, specificReturn := fake.setCircuitBreakerReturnsOnCall[len(fake.setCircuitBreakerArgsForCall)]
-	fake.setCircuitBreakerArgsForCall = append(fake.setCircuitBreakerArgsForCall, struct {
-		cb cbapiclient.CircuitBreakerPrototype
-	}{cb})
-	fake.recordInvocation("SetCircuitBreaker", []interface{}{cb})
-	fake.setCircuitBreakerMutex.Unlock()
-	if fake.SetCircuitBreakerStub != nil {
-		return fake.SetCircuitBreakerStub(cb)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.setCircuitBreakerReturns.result1
-}
-
-func (fake *FakeIClient) SetCircuitBreakerCallCount() int {
-	fake.setCircuitBreakerMutex.RLock()
-	defer fake.setCircuitBreakerMutex.RUnlock()
-	return len(fake.setCircuitBreakerArgsForCall)
-}
-
-func (fake *FakeIClient) SetCircuitBreakerArgsForCall(i int) cbapiclient.CircuitBreakerPrototype {
-	fake.setCircuitBreakerMutex.RLock()
-	defer fake.setCircuitBreakerMutex.RUnlock()
-	return fake.setCircuitBreakerArgsForCall[i].cb
-}
-
-func (fake *FakeIClient) SetCircuitBreakerReturns(result1 *cbapiclient.Client) {
-	fake.SetCircuitBreakerStub = nil
-	fake.setCircuitBreakerReturns = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) SetCircuitBreakerReturnsOnCall(i int, result1 *cbapiclient.Client) {
-	fake.SetCircuitBreakerStub = nil
-	if fake.setCircuitBreakerReturnsOnCall == nil {
-		fake.setCircuitBreakerReturnsOnCall = make(map[int]struct {
-			result1 *cbapiclient.Client
-		})
-	}
-	fake.setCircuitBreakerReturnsOnCall[i] = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) SetNRTxnName(name string) *cbapiclient.Client {
-	fake.setNRTxnNameMutex.Lock()
-	ret, specificReturn := fake.setNRTxnNameReturnsOnCall[len(fake.setNRTxnNameArgsForCall)]
-	fake.setNRTxnNameArgsForCall = append(fake.setNRTxnNameArgsForCall, struct {
-		name string
-	}{name})
-	fake.recordInvocation("SetNRTxnName", []interface{}{name})
-	fake.setNRTxnNameMutex.Unlock()
-	if fake.SetNRTxnNameStub != nil {
-		return fake.SetNRTxnNameStub(name)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.setNRTxnNameReturns.result1
-}
-
-func (fake *FakeIClient) SetNRTxnNameCallCount() int {
-	fake.setNRTxnNameMutex.RLock()
-	defer fake.setNRTxnNameMutex.RUnlock()
-	return len(fake.setNRTxnNameArgsForCall)
-}
-
-func (fake *FakeIClient) SetNRTxnNameArgsForCall(i int) string {
-	fake.setNRTxnNameMutex.RLock()
-	defer fake.setNRTxnNameMutex.RUnlock()
-	return fake.setNRTxnNameArgsForCall[i].name
-}
-
-func (fake *FakeIClient) SetNRTxnNameReturns(result1 *cbapiclient.Client) {
-	fake.SetNRTxnNameStub = nil
-	fake.setNRTxnNameReturns = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) SetNRTxnNameReturnsOnCall(i int, result1 *cbapiclient.Client) {
-	fake.SetNRTxnNameStub = nil
-	if fake.setNRTxnNameReturnsOnCall == nil {
-		fake.setNRTxnNameReturnsOnCall = make(map[int]struct {
-			result1 *cbapiclient.Client
-		})
-	}
-	fake.setNRTxnNameReturnsOnCall[i] = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) KeepArtifacts() *cbapiclient.Client {
-	fake.keepArtifactsMutex.Lock()
-	ret, specificReturn := fake.keepArtifactsReturnsOnCall[len(fake.keepArtifactsArgsForCall)]
-	fake.keepArtifactsArgsForCall = append(fake.keepArtifactsArgsForCall, struct{}{})
-	fake.recordInvocation("KeepArtifacts", []interface{}{})
-	fake.keepArtifactsMutex.Unlock()
-	if fake.KeepArtifactsStub != nil {
-		return fake.KeepArtifactsStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.keepArtifactsReturns.result1
-}
-
-func (fake *FakeIClient) KeepArtifactsCallCount() int {
-	fake.keepArtifactsMutex.RLock()
-	defer fake.keepArtifactsMutex.RUnlock()
-	return len(fake.keepArtifactsArgsForCall)
-}
-
-func (fake *FakeIClient) KeepArtifactsReturns(result1 *cbapiclient.Client) {
-	fake.KeepArtifactsStub = nil
-	fake.keepArtifactsReturns = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) KeepArtifactsReturnsOnCall(i int, result1 *cbapiclient.Client) {
-	fake.KeepArtifactsStub = nil
-	if fake.keepArtifactsReturnsOnCall == nil {
-		fake.keepArtifactsReturnsOnCall = make(map[int]struct {
-			result1 *cbapiclient.Client
-		})
-	}
-	fake.keepArtifactsReturnsOnCall[i] = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) SetContentType(ct string) *cbapiclient.Client {
-	fake.setContentTypeMutex.Lock()
-	ret, specificReturn := fake.setContentTypeReturnsOnCall[len(fake.setContentTypeArgsForCall)]
-	fake.setContentTypeArgsForCall = append(fake.setContentTypeArgsForCall, struct {
-		ct string
-	}{ct})
-	fake.recordInvocation("SetContentType", []interface{}{ct})
-	fake.setContentTypeMutex.Unlock()
-	if fake.SetContentTypeStub != nil {
-		return fake.SetContentTypeStub(ct)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.setContentTypeReturns.result1
-}
-
-func (fake *FakeIClient) SetContentTypeCallCount() int {
-	fake.setContentTypeMutex.RLock()
-	defer fake.setContentTypeMutex.RUnlock()
-	return len(fake.setContentTypeArgsForCall)
-}
-
-func (fake *FakeIClient) SetContentTypeArgsForCall(i int) string {
-	fake.setContentTypeMutex.RLock()
-	defer fake.setContentTypeMutex.RUnlock()
-	return fake.setContentTypeArgsForCall[i].ct
-}
-
-func (fake *FakeIClient) SetContentTypeReturns(result1 *cbapiclient.Client) {
-	fake.SetContentTypeStub = nil
-	fake.setContentTypeReturns = struct {
-		result1 *cbapiclient.Client
-	}{result1}
-}
-
-func (fake *FakeIClient) SetContentTypeReturnsOnCall(i int, result1 *cbapiclient.Client) {
-	fake.SetContentTypeStub = nil
-	if fake.setContentTypeReturnsOnCall == nil {
-		fake.setContentTypeReturnsOnCall = make(map[int]struct {
-			result1 *cbapiclient.Client
-		})
-	}
-	fake.setContentTypeReturnsOnCall[i] = struct {
-		result1 *cbapiclient.Client
-	}{result1}
+	fake.deleteReturnsOnCall[i] = struct {
+		result1 int
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeIClient) Do(ctx context.Context, method string, payload interface{}) (int, error) {
@@ -720,6 +307,22 @@ func (fake *FakeIClient) GetReturnsOnCall(i int, result1 int, result2 error) {
 		result1 int
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeIClient) KeepRawResponse() {
+	fake.keepRawResponseMutex.Lock()
+	fake.keepRawResponseArgsForCall = append(fake.keepRawResponseArgsForCall, struct{}{})
+	fake.recordInvocation("KeepRawResponse", []interface{}{})
+	fake.keepRawResponseMutex.Unlock()
+	if fake.KeepRawResponseStub != nil {
+		fake.KeepRawResponseStub()
+	}
+}
+
+func (fake *FakeIClient) KeepRawResponseCallCount() int {
+	fake.keepRawResponseMutex.RLock()
+	defer fake.keepRawResponseMutex.RUnlock()
+	return len(fake.keepRawResponseArgsForCall)
 }
 
 func (fake *FakeIClient) Post(ctx context.Context, payload interface{}) (int, error) {
@@ -878,92 +481,291 @@ func (fake *FakeIClient) PatchReturnsOnCall(i int, result1 int, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeIClient) Delete(ctx context.Context) (int, error) {
-	fake.deleteMutex.Lock()
-	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
-	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
-		ctx context.Context
-	}{ctx})
-	fake.recordInvocation("Delete", []interface{}{ctx})
-	fake.deleteMutex.Unlock()
-	if fake.DeleteStub != nil {
-		return fake.DeleteStub(ctx)
+func (fake *FakeIClient) RawResponse() []byte {
+	fake.rawResponseMutex.Lock()
+	ret, specificReturn := fake.rawResponseReturnsOnCall[len(fake.rawResponseArgsForCall)]
+	fake.rawResponseArgsForCall = append(fake.rawResponseArgsForCall, struct{}{})
+	fake.recordInvocation("RawResponse", []interface{}{})
+	fake.rawResponseMutex.Unlock()
+	if fake.RawResponseStub != nil {
+		return fake.RawResponseStub()
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1
 	}
-	return fake.deleteReturns.result1, fake.deleteReturns.result2
+	return fake.rawResponseReturns.result1
 }
 
-func (fake *FakeIClient) DeleteCallCount() int {
-	fake.deleteMutex.RLock()
-	defer fake.deleteMutex.RUnlock()
-	return len(fake.deleteArgsForCall)
+func (fake *FakeIClient) RawResponseCallCount() int {
+	fake.rawResponseMutex.RLock()
+	defer fake.rawResponseMutex.RUnlock()
+	return len(fake.rawResponseArgsForCall)
 }
 
-func (fake *FakeIClient) DeleteArgsForCall(i int) context.Context {
-	fake.deleteMutex.RLock()
-	defer fake.deleteMutex.RUnlock()
-	return fake.deleteArgsForCall[i].ctx
+func (fake *FakeIClient) RawResponseReturns(result1 []byte) {
+	fake.RawResponseStub = nil
+	fake.rawResponseReturns = struct {
+		result1 []byte
+	}{result1}
 }
 
-func (fake *FakeIClient) DeleteReturns(result1 int, result2 error) {
-	fake.DeleteStub = nil
-	fake.deleteReturns = struct {
-		result1 int
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeIClient) DeleteReturnsOnCall(i int, result1 int, result2 error) {
-	fake.DeleteStub = nil
-	if fake.deleteReturnsOnCall == nil {
-		fake.deleteReturnsOnCall = make(map[int]struct {
-			result1 int
-			result2 error
+func (fake *FakeIClient) RawResponseReturnsOnCall(i int, result1 []byte) {
+	fake.RawResponseStub = nil
+	if fake.rawResponseReturnsOnCall == nil {
+		fake.rawResponseReturnsOnCall = make(map[int]struct {
+			result1 []byte
 		})
 	}
-	fake.deleteReturnsOnCall[i] = struct {
-		result1 int
-		result2 error
-	}{result1, result2}
+	fake.rawResponseReturnsOnCall[i] = struct {
+		result1 []byte
+	}{result1}
+}
+
+func (fake *FakeIClient) SetCircuitBreaker(cb cbapiclient.CircuitBreakerPrototype) {
+	fake.setCircuitBreakerMutex.Lock()
+	fake.setCircuitBreakerArgsForCall = append(fake.setCircuitBreakerArgsForCall, struct {
+		cb cbapiclient.CircuitBreakerPrototype
+	}{cb})
+	fake.recordInvocation("SetCircuitBreaker", []interface{}{cb})
+	fake.setCircuitBreakerMutex.Unlock()
+	if fake.SetCircuitBreakerStub != nil {
+		fake.SetCircuitBreakerStub(cb)
+	}
+}
+
+func (fake *FakeIClient) SetCircuitBreakerCallCount() int {
+	fake.setCircuitBreakerMutex.RLock()
+	defer fake.setCircuitBreakerMutex.RUnlock()
+	return len(fake.setCircuitBreakerArgsForCall)
+}
+
+func (fake *FakeIClient) SetCircuitBreakerArgsForCall(i int) cbapiclient.CircuitBreakerPrototype {
+	fake.setCircuitBreakerMutex.RLock()
+	defer fake.setCircuitBreakerMutex.RUnlock()
+	return fake.setCircuitBreakerArgsForCall[i].cb
+}
+
+func (fake *FakeIClient) SetContentType(ct string) {
+	fake.setContentTypeMutex.Lock()
+	fake.setContentTypeArgsForCall = append(fake.setContentTypeArgsForCall, struct {
+		ct string
+	}{ct})
+	fake.recordInvocation("SetContentType", []interface{}{ct})
+	fake.setContentTypeMutex.Unlock()
+	if fake.SetContentTypeStub != nil {
+		fake.SetContentTypeStub(ct)
+	}
+}
+
+func (fake *FakeIClient) SetContentTypeCallCount() int {
+	fake.setContentTypeMutex.RLock()
+	defer fake.setContentTypeMutex.RUnlock()
+	return len(fake.setContentTypeArgsForCall)
+}
+
+func (fake *FakeIClient) SetContentTypeArgsForCall(i int) string {
+	fake.setContentTypeMutex.RLock()
+	defer fake.setContentTypeMutex.RUnlock()
+	return fake.setContentTypeArgsForCall[i].ct
+}
+
+func (fake *FakeIClient) SetHeader(key string, value string) {
+	fake.setHeaderMutex.Lock()
+	fake.setHeaderArgsForCall = append(fake.setHeaderArgsForCall, struct {
+		key   string
+		value string
+	}{key, value})
+	fake.recordInvocation("SetHeader", []interface{}{key, value})
+	fake.setHeaderMutex.Unlock()
+	if fake.SetHeaderStub != nil {
+		fake.SetHeaderStub(key, value)
+	}
+}
+
+func (fake *FakeIClient) SetHeaderCallCount() int {
+	fake.setHeaderMutex.RLock()
+	defer fake.setHeaderMutex.RUnlock()
+	return len(fake.setHeaderArgsForCall)
+}
+
+func (fake *FakeIClient) SetHeaderArgsForCall(i int) (string, string) {
+	fake.setHeaderMutex.RLock()
+	defer fake.setHeaderMutex.RUnlock()
+	return fake.setHeaderArgsForCall[i].key, fake.setHeaderArgsForCall[i].value
+}
+
+func (fake *FakeIClient) SetNRTxnName(name string) {
+	fake.setNRTxnNameMutex.Lock()
+	fake.setNRTxnNameArgsForCall = append(fake.setNRTxnNameArgsForCall, struct {
+		name string
+	}{name})
+	fake.recordInvocation("SetNRTxnName", []interface{}{name})
+	fake.setNRTxnNameMutex.Unlock()
+	if fake.SetNRTxnNameStub != nil {
+		fake.SetNRTxnNameStub(name)
+	}
+}
+
+func (fake *FakeIClient) SetNRTxnNameCallCount() int {
+	fake.setNRTxnNameMutex.RLock()
+	defer fake.setNRTxnNameMutex.RUnlock()
+	return len(fake.setNRTxnNameArgsForCall)
+}
+
+func (fake *FakeIClient) SetNRTxnNameArgsForCall(i int) string {
+	fake.setNRTxnNameMutex.RLock()
+	defer fake.setNRTxnNameMutex.RUnlock()
+	return fake.setNRTxnNameArgsForCall[i].name
+}
+
+func (fake *FakeIClient) StatusCodeIsError() bool {
+	fake.statusCodeIsErrorMutex.Lock()
+	ret, specificReturn := fake.statusCodeIsErrorReturnsOnCall[len(fake.statusCodeIsErrorArgsForCall)]
+	fake.statusCodeIsErrorArgsForCall = append(fake.statusCodeIsErrorArgsForCall, struct{}{})
+	fake.recordInvocation("StatusCodeIsError", []interface{}{})
+	fake.statusCodeIsErrorMutex.Unlock()
+	if fake.StatusCodeIsErrorStub != nil {
+		return fake.StatusCodeIsErrorStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.statusCodeIsErrorReturns.result1
+}
+
+func (fake *FakeIClient) StatusCodeIsErrorCallCount() int {
+	fake.statusCodeIsErrorMutex.RLock()
+	defer fake.statusCodeIsErrorMutex.RUnlock()
+	return len(fake.statusCodeIsErrorArgsForCall)
+}
+
+func (fake *FakeIClient) StatusCodeIsErrorReturns(result1 bool) {
+	fake.StatusCodeIsErrorStub = nil
+	fake.statusCodeIsErrorReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *FakeIClient) StatusCodeIsErrorReturnsOnCall(i int, result1 bool) {
+	fake.StatusCodeIsErrorStub = nil
+	if fake.statusCodeIsErrorReturnsOnCall == nil {
+		fake.statusCodeIsErrorReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.statusCodeIsErrorReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *FakeIClient) WillSaturate(proto interface{}) {
+	fake.willSaturateMutex.Lock()
+	fake.willSaturateArgsForCall = append(fake.willSaturateArgsForCall, struct {
+		proto interface{}
+	}{proto})
+	fake.recordInvocation("WillSaturate", []interface{}{proto})
+	fake.willSaturateMutex.Unlock()
+	if fake.WillSaturateStub != nil {
+		fake.WillSaturateStub(proto)
+	}
+}
+
+func (fake *FakeIClient) WillSaturateCallCount() int {
+	fake.willSaturateMutex.RLock()
+	defer fake.willSaturateMutex.RUnlock()
+	return len(fake.willSaturateArgsForCall)
+}
+
+func (fake *FakeIClient) WillSaturateArgsForCall(i int) interface{} {
+	fake.willSaturateMutex.RLock()
+	defer fake.willSaturateMutex.RUnlock()
+	return fake.willSaturateArgsForCall[i].proto
+}
+
+func (fake *FakeIClient) WillSaturateOnError(proto interface{}) {
+	fake.willSaturateOnErrorMutex.Lock()
+	fake.willSaturateOnErrorArgsForCall = append(fake.willSaturateOnErrorArgsForCall, struct {
+		proto interface{}
+	}{proto})
+	fake.recordInvocation("WillSaturateOnError", []interface{}{proto})
+	fake.willSaturateOnErrorMutex.Unlock()
+	if fake.WillSaturateOnErrorStub != nil {
+		fake.WillSaturateOnErrorStub(proto)
+	}
+}
+
+func (fake *FakeIClient) WillSaturateOnErrorCallCount() int {
+	fake.willSaturateOnErrorMutex.RLock()
+	defer fake.willSaturateOnErrorMutex.RUnlock()
+	return len(fake.willSaturateOnErrorArgsForCall)
+}
+
+func (fake *FakeIClient) WillSaturateOnErrorArgsForCall(i int) interface{} {
+	fake.willSaturateOnErrorMutex.RLock()
+	defer fake.willSaturateOnErrorMutex.RUnlock()
+	return fake.willSaturateOnErrorArgsForCall[i].proto
+}
+
+func (fake *FakeIClient) WillSaturateWithStatusCode(statusCode int, proto interface{}) {
+	fake.willSaturateWithStatusCodeMutex.Lock()
+	fake.willSaturateWithStatusCodeArgsForCall = append(fake.willSaturateWithStatusCodeArgsForCall, struct {
+		statusCode int
+		proto      interface{}
+	}{statusCode, proto})
+	fake.recordInvocation("WillSaturateWithStatusCode", []interface{}{statusCode, proto})
+	fake.willSaturateWithStatusCodeMutex.Unlock()
+	if fake.WillSaturateWithStatusCodeStub != nil {
+		fake.WillSaturateWithStatusCodeStub(statusCode, proto)
+	}
+}
+
+func (fake *FakeIClient) WillSaturateWithStatusCodeCallCount() int {
+	fake.willSaturateWithStatusCodeMutex.RLock()
+	defer fake.willSaturateWithStatusCodeMutex.RUnlock()
+	return len(fake.willSaturateWithStatusCodeArgsForCall)
+}
+
+func (fake *FakeIClient) WillSaturateWithStatusCodeArgsForCall(i int) (int, interface{}) {
+	fake.willSaturateWithStatusCodeMutex.RLock()
+	defer fake.willSaturateWithStatusCodeMutex.RUnlock()
+	return fake.willSaturateWithStatusCodeArgsForCall[i].statusCode, fake.willSaturateWithStatusCodeArgsForCall[i].proto
 }
 
 func (fake *FakeIClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.rawResponseMutex.RLock()
-	defer fake.rawResponseMutex.RUnlock()
-	fake.statusCodeIsErrorMutex.RLock()
-	defer fake.statusCodeIsErrorMutex.RUnlock()
-	fake.recycleMutex.RLock()
-	defer fake.recycleMutex.RUnlock()
-	fake.willSaturateMutex.RLock()
-	defer fake.willSaturateMutex.RUnlock()
-	fake.willSaturateOnErrorMutex.RLock()
-	defer fake.willSaturateOnErrorMutex.RUnlock()
-	fake.willSaturateWithStatusCodeMutex.RLock()
-	defer fake.willSaturateWithStatusCodeMutex.RUnlock()
-	fake.setCircuitBreakerMutex.RLock()
-	defer fake.setCircuitBreakerMutex.RUnlock()
-	fake.setNRTxnNameMutex.RLock()
-	defer fake.setNRTxnNameMutex.RUnlock()
-	fake.keepArtifactsMutex.RLock()
-	defer fake.keepArtifactsMutex.RUnlock()
-	fake.setContentTypeMutex.RLock()
-	defer fake.setContentTypeMutex.RUnlock()
+	fake.deleteMutex.RLock()
+	defer fake.deleteMutex.RUnlock()
 	fake.doMutex.RLock()
 	defer fake.doMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
+	fake.keepRawResponseMutex.RLock()
+	defer fake.keepRawResponseMutex.RUnlock()
 	fake.postMutex.RLock()
 	defer fake.postMutex.RUnlock()
 	fake.putMutex.RLock()
 	defer fake.putMutex.RUnlock()
 	fake.patchMutex.RLock()
 	defer fake.patchMutex.RUnlock()
-	fake.deleteMutex.RLock()
-	defer fake.deleteMutex.RUnlock()
+	fake.rawResponseMutex.RLock()
+	defer fake.rawResponseMutex.RUnlock()
+	fake.setCircuitBreakerMutex.RLock()
+	defer fake.setCircuitBreakerMutex.RUnlock()
+	fake.setContentTypeMutex.RLock()
+	defer fake.setContentTypeMutex.RUnlock()
+	fake.setHeaderMutex.RLock()
+	defer fake.setHeaderMutex.RUnlock()
+	fake.setNRTxnNameMutex.RLock()
+	defer fake.setNRTxnNameMutex.RUnlock()
+	fake.statusCodeIsErrorMutex.RLock()
+	defer fake.statusCodeIsErrorMutex.RUnlock()
+	fake.willSaturateMutex.RLock()
+	defer fake.willSaturateMutex.RUnlock()
+	fake.willSaturateOnErrorMutex.RLock()
+	defer fake.willSaturateOnErrorMutex.RUnlock()
+	fake.willSaturateWithStatusCodeMutex.RLock()
+	defer fake.willSaturateWithStatusCodeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

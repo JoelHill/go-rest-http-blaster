@@ -1,10 +1,13 @@
 package cbapiclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,7 +19,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/newrelic/go-agent"
 	"github.com/nu7hatch/gouuid"
-	"github.com/valyala/fasthttp"
 )
 
 //go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
@@ -26,6 +28,15 @@ const (
 	requestIDHeader      = "Request-ID"
 	callingServiceHeader = "Calling-Service"
 	jsonType             = "application/json"
+	contentTypeHeader    = "Content-Type"
+	userAgentHeader      = "User-Agent"
+	contentLengthHeader  = "Content-Length"
+	acceptHeader         = "Accept"
+	requestTimeout       = 8 * time.Second  // the max amount of time for the entire request before failing
+	sockTimeout          = 2 * time.Second  // the max amount of time attempting to make the tcp connection
+	tlsTimeout           = 2 * time.Second  // the max amount of time establishing TLS handshake
+	idleTimeout          = 10 * time.Second // the amount of time to keep idle connections available before closing them
+	maxIdleConnsPerHost  = 100              // the maximum number of idle connections to keep around for reuse
 )
 
 // CircuitBreakerPrototype defines the circuit breaker Execute function signature
@@ -58,54 +69,48 @@ type Defaults struct {
 }
 
 type IClient interface {
-	RawResponse() []byte
-	StatusCodeIsError() bool
-	Recycle()
-	WillSaturate(proto interface{}) *Client
-	WillSaturateOnError(proto interface{}) *Client
-	WillSaturateWithStatusCode(statusCode int, proto interface{}) *Client
-	SetCircuitBreaker(cb CircuitBreakerPrototype) *Client
-	SetNRTxnName(name string) *Client
-	KeepArtifacts() *Client
-	SetContentType(ct string) *Client
+	Delete(ctx context.Context) (int, error)
 	Do(ctx context.Context, method string, payload interface{}) (int, error)
 	Get(ctx context.Context) (int, error)
+	KeepRawResponse()
 	Post(ctx context.Context, payload interface{}) (int, error)
 	Put(ctx context.Context, payload interface{}) (int, error)
 	Patch(ctx context.Context, payload interface{}) (int, error)
-	Delete(ctx context.Context) (int, error)
+	RawResponse() []byte
+	SetCircuitBreaker(cb CircuitBreakerPrototype)
+	SetContentType(ct string)
+	SetHeader(key string, value string)
+	SetNRTxnName(name string)
+	StatusCodeIsError() bool
+	WillSaturate(proto interface{})
+	WillSaturateOnError(proto interface{})
+	WillSaturateWithStatusCode(statusCode int, proto interface{})
 }
 
 // Client encapsulates the http Request functionality
 type Client struct {
-	// Prototype will be saturated when the Request succeeds.
-	Prototype interface{}
+	// prototype will be saturated when the Request succeeds.
+	prototype interface{}
 
-	// ErrorPrototype will be saturated when the Request fails.
+	// errorPrototype will be saturated when the Request fails.
 	// A Request is implicitly considered a failure if the
 	// status code of the Response is not in the 2XX range.
-	ErrorPrototype interface{}
+	errorPrototype interface{}
 
-	// Endpoint is the destination for the http Request
-	Endpoint *url.URL
+	// endpoint is the destination for the http Request
+	endpoint *url.URL
 
-	// Request is the underlying fasthttp Request
-	Request *fasthttp.Request
+	// nrTxnName is the explicit New Relic transaction name
+	nrTxnName string
 
-	// Response is the underlying fasthttp Response
-	Response *fasthttp.Response
-
-	// NRTxnName is the explicit New Relic transaction name
-	NRTxnName string
-
-	// CustomPrototypes is a map of interfaces that
+	// customPrototypes is a map of interfaces that
 	// will be saturated when specific response codes
 	// are returned from the endpoint
-	CustomPrototypes map[int]interface{}
+	customPrototypes map[int]interface{}
 
-	// Duration is the length of time the request took to run.
+	// duration is the length of time the request took to run.
 	// Obviously this only has value after the request is run.
-	Duration time.Duration
+	duration time.Duration
 
 	// Internal circuit breaker
 	cb CircuitBreakerPrototype
@@ -119,8 +124,20 @@ type Client struct {
 	// gets set true
 	responseIsError bool
 
-	// do not automatically recycle the fasthttp request and response
-	keepFastHttpArtifacts bool
+	// internal http client
+	client *http.Client
+
+	// internal headers
+	headers map[string]string
+
+	// request method
+	method string
+
+	// flag to copy raw response bytes from http response
+	keepRawResponse bool
+
+	// raw response bytes
+	rawresponse []byte
 }
 
 var (
@@ -198,24 +215,48 @@ func SetDefaults(defaults *Defaults) {
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
 }
 
+// this creates a http client with sensible defaults
+func newHttpClient() *http.Client {
+	client := &http.Client{
+		Timeout: requestTimeout,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   sockTimeout,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConnsPerHost: maxIdleConnsPerHost,
+			IdleConnTimeout:     idleTimeout,
+			TLSHandshakeTimeout: tlsTimeout,
+		},
+	}
+	client.Timeout = requestTimeout
+
+	return client
+}
+
 // NewClient will initialize and return a new client with a
 // fasthttp request and endpoint.  The client's content type
 // defaults to application/json
 func NewClient(uri string) (*Client, error) {
+
+	ensurePackageVariables()
+
 	ep, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
 
 	c := &Client{
-		Request:  fasthttp.AcquireRequest(),
-		Endpoint: ep,
+		endpoint: ep,
+		method:   http.MethodGet,
+		client:   newHttpClient(),
+		headers: map[string]string{
+			userAgentHeader:      pkgUserAgent,
+			contentTypeHeader:    jsonType,
+			callingServiceHeader: pkgServiceName,
+			acceptHeader:         jsonType,
+		},
 	}
-
-	c.Request.SetRequestURI(ep.String())
-	c.Request.Header.SetUserAgent(pkgUserAgent)
-	c.Request.Header.Set(callingServiceHeader, pkgServiceName)
-	c.Request.Header.SetContentType(jsonType)
 
 	return c, nil
 }
@@ -225,11 +266,11 @@ func NewClient(uri string) (*Client, error) {
 // ========================================================
 //
 
-// applyPreflightHeaders will apply headers right before
+// applyContextDependentHeaders will apply headers right before
 // the request is launched
-func (c *Client) applyPreflightHeaders(ctx context.Context) {
+func (c *Client) applyContextDependentHeaders(ctx context.Context) {
 	if requestID, ok := pkgRequestIDProviderFunc(ctx); ok {
-		c.Request.Header.Set(requestIDHeader, requestID)
+		c.headers[requestIDHeader] = requestID
 	}
 }
 
@@ -241,30 +282,28 @@ func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
 	// get new relic transaction from context
 	txn, _ := pkgNRTxnProviderFunc(ctx)
 
-	if c.NRTxnName != "" {
-		return newrelic.StartSegment(txn, c.NRTxnName)
+	if c.nrTxnName != "" {
+		return newrelic.StartSegment(txn, c.nrTxnName)
 	}
 
 	c.nrStackDepth++
 	pc, _, _, _ := runtime.Caller(c.nrStackDepth)
 	funcPath := strings.Split(runtime.FuncForPC(pc).Name(), "/")
 
-	return newrelic.StartSegment(txn, strings.Split(funcPath[len(funcPath)-1], ".")[1]+c.Endpoint.RawPath)
+	return newrelic.StartSegment(txn, strings.Split(funcPath[len(funcPath)-1], ".")[1]+c.endpoint.RawPath)
 }
 
 // doInternal will perform the actual request.  This function
 // is either called from within a circuit breaker, or directly
 // from Do.
 func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, error) {
-	// this function runs only on the first request
-	// subsequent calls are a no-ops
-	ensurePackageVariables()
 
 	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
 	if canLog {
 		logger = logger.WithFields(logrus.Fields{
+			"func_name": "cbapiclient.doInternal",
 			"payload": map[string]interface{}{
-				"url": c.Endpoint.String(),
+				"url": c.endpoint.String(),
 			},
 		})
 	}
@@ -279,13 +318,12 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	)
 
 	// set default headers
-	c.applyPreflightHeaders(ctx)
+	c.applyContextDependentHeaders(ctx)
 
 	// process the payload if it exists
 	if payload != nil {
-
 		// if it's a json Request, marshal the payload
-		if string(c.Request.Header.ContentType()) == jsonType {
+		if c.headers[contentTypeHeader] == jsonType {
 			payloadBytes, err = json.Marshal(payload)
 			if err != nil {
 				if canLog {
@@ -308,27 +346,51 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			}
 		}
 
-		c.Request.SetBody(payloadBytes)
-		c.Request.Header.SetContentLength(len(payloadBytes))
+		c.headers[contentLengthHeader] = fmt.Sprintf("%d", len(payloadBytes))
 	}
 
 	if canLog {
 		logger.Debug("launching Request")
 	}
 
-	// create a response container
-	resp := fasthttp.AcquireResponse()
-	if err = fasthttp.Do(c.Request, resp); err != nil {
-		if canLog {
-			logger.WithField("error_message", err.Error()).Error("Request failed")
-		}
+	request, err := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
+	if err != nil {
 		return http.StatusInternalServerError, err
 	}
-	// request did not fail on this side, assign response
-	c.Response = resp
 
-	statusCode := c.Response.StatusCode()
-	body := c.Response.Body()
+	for k, v := range c.headers {
+		request.Header.Set(k, v)
+	}
+
+	response, err := c.client.Do(request)
+	// close request body immediately
+	if reqCloseErr := request.Body.Close(); reqCloseErr != nil {
+		logger.Errorf("error closing request io reader: %v", reqCloseErr)
+	}
+	// request error
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	// defer response body reader close
+	defer func(resp *http.Response, logger *logrus.Entry) {
+		if err := resp.Body.Close(); err != nil {
+			logger.Errorf("error ")
+		}
+	}(response, logger)
+
+	// get status code
+	statusCode := response.StatusCode
+
+	// get response body
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	// only keep the raw response if explicitly requested
+	if c.keepRawResponse {
+		c.rawresponse = body
+	}
 
 	// if the response has a body, handle it
 	if len(body) > 0 {
@@ -343,14 +405,14 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		}
 
 		// if there is a custom response for this specific status code
-		if c.CustomPrototypes[statusCode] != nil {
-			unmarshalTo = c.CustomPrototypes[statusCode]
+		if c.customPrototypes[statusCode] != nil {
+			unmarshalTo = c.customPrototypes[statusCode]
 		} else if notSuccess {
 			// request returned error code
-			unmarshalTo = c.ErrorPrototype
+			unmarshalTo = c.errorPrototype
 		} else {
 			// request succeeded
-			unmarshalTo = c.Prototype
+			unmarshalTo = c.prototype
 		}
 
 		// if there is something that can be unmarshalled into
@@ -373,19 +435,13 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 
 	// start the clock
 	defer func(c *Client, begin time.Time) {
-		c.Duration = time.Now().Sub(begin)
+		c.duration = time.Now().Sub(begin)
 	}(c, time.Now())
 
 	c.nrStackDepth++
-	c.Request.Header.SetMethod(method)
 
-	if c.Endpoint == nil {
+	if c.endpoint == nil {
 		return http.StatusInternalServerError, errors.New("endpoint for Request not set")
-	}
-
-	// recycle artifacts unless explicitly retained
-	if !c.keepFastHttpArtifacts {
-		defer c.Recycle()
 	}
 
 	if c.cb == nil {
@@ -400,14 +456,20 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 	return sc.(int), err
 }
 
+// KeepRawResponse will cause the raw bytes from the http response
+// to be retained
+func (c *Client) KeepRawResponse() {
+	c.keepRawResponse = true
+}
+
 // RawResponse is a shortcut to access the raw bytes returned
 // in the http response
 func (c *Client) RawResponse() []byte {
-	if c.Response == nil {
-		return []byte{}
+	if c.keepRawResponse {
+		return c.rawresponse
 	}
 
-	return c.Response.Body()
+	return []byte{}
 }
 
 // StatusCodeIsError is a shortcut to determine if the status code is
@@ -416,36 +478,13 @@ func (c *Client) StatusCodeIsError() bool {
 	return c.responseIsError
 }
 
-// Recycle will allow fasthttp to recycle the request/response back to their
-// appropriate pools, which reduces GC pressure and usually improves performance
-func (c *Client) Recycle() {
-	if c.Request != nil {
-		junk := c.Request
-		c.Request = nil
-		fasthttp.ReleaseRequest(junk)
-	}
-	if c.Response != nil {
-		junk := c.Response
-		c.Response = nil
-		fasthttp.ReleaseResponse(junk)
-	}
-}
-
-//
-// Fluent Functions
-// These functions may be chained together
-// ========================================================
-//
-
 // WillSaturate assigns the interface that will be saturated
 // when the request succeeds.  It is assumed that the value passed
 // into this function can be saturated via the unmarshalling of json.
 // If that is not the case, you will need to process the raw bytes
 // returned in the response instead
-func (c *Client) WillSaturate(proto interface{}) *Client {
-	c.Prototype = proto
-
-	return c
+func (c *Client) WillSaturate(proto interface{}) {
+	c.prototype = proto
 }
 
 // WillSaturateOnError assigns the interface that will be saturated
@@ -454,10 +493,8 @@ func (c *Client) WillSaturate(proto interface{}) *Client {
 // If that is not the case, you will need to process the raw bytes
 // returned in the response instead.  This library treats an error
 // as any response with a status code not in the 2XX range.
-func (c *Client) WillSaturateOnError(proto interface{}) *Client {
-	c.ErrorPrototype = proto
-
-	return c
+func (c *Client) WillSaturateOnError(proto interface{}) {
+	c.errorPrototype = proto
 }
 
 // WillSaturateWithStatusCode assigns the interface that will be
@@ -468,39 +505,23 @@ func (c *Client) WillSaturateOnError(proto interface{}) *Client {
 // take precedence over anything set in WillSaturate, but will only
 // return the saturated value for a 200, and no other 2XX-level code,
 // unless specified here.
-func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{}) *Client {
-	if c.CustomPrototypes == nil {
-		c.CustomPrototypes = make(map[int]interface{}, 1)
+func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{}) {
+	if c.customPrototypes == nil {
+		c.customPrototypes = make(map[int]interface{}, 1)
 	}
 
-	c.CustomPrototypes[statusCode] = proto
-
-	return c
+	c.customPrototypes[statusCode] = proto
 }
 
 // SetCircuitBreaker sets the optional circuit breaker interface that
 // wraps the http request.
-func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) *Client {
+func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) {
 	c.cb = cb
-
-	return c
 }
 
 // SetNRTxnName will set the New Relic transaction name
-func (c *Client) SetNRTxnName(name string) *Client {
-	c.NRTxnName = name
-
-	return c
-}
-
-// KeepArtifacts will keep the FastHTTP request and response from being
-// recycled into the pool.  This will allow direct access to the FastHTTP
-// objects.  This function MUST be called if you want to access the
-// response raw bytes returned by RawResponse()
-func (c *Client) KeepArtifacts() *Client {
-	c.keepFastHttpArtifacts = true
-
-	return c
+func (c *Client) SetNRTxnName(name string) {
+	c.nrTxnName = name
 }
 
 // SetContentType will set the request content type.  By default, all
@@ -508,10 +529,24 @@ func (c *Client) KeepArtifacts() *Client {
 // different type, here is where you override it.  Also note that if
 // you do provide a content type, your payload for POST, PUT, or PATCH
 // must be a byte slice or it must be convertible to a byte slice
-func (c *Client) SetContentType(ct string) *Client {
-	c.Request.Header.SetContentType(ct)
+func (c *Client) SetContentType(ct string) {
+	c.headers[contentTypeHeader] = ct
 
-	return c
+	if ct != jsonType {
+		delete(c.headers, acceptHeader)
+	} else {
+		c.headers[acceptHeader] = jsonType
+	}
+}
+
+// SetHeader allows for custom http headers
+func (c *Client) SetHeader(key string, value string) {
+	if key == contentTypeHeader {
+		c.SetContentType(value)
+		return
+	}
+
+	c.headers[key] = value
 }
 
 //
@@ -529,6 +564,7 @@ func (c *Client) Get(ctx context.Context) (int, error) {
 // Post performs an HTTP POST request with the specified payload
 func (c *Client) Post(ctx context.Context, payload interface{}) (int, error) {
 	c.nrStackDepth++
+	c.method = http.MethodPost
 
 	return c.Do(ctx, http.MethodPost, payload)
 }
@@ -536,6 +572,7 @@ func (c *Client) Post(ctx context.Context, payload interface{}) (int, error) {
 // Put performs an HTTP PUT request with the specified payload
 func (c *Client) Put(ctx context.Context, payload interface{}) (int, error) {
 	c.nrStackDepth++
+	c.method = http.MethodPut
 
 	return c.Do(ctx, http.MethodPut, payload)
 }
@@ -543,6 +580,7 @@ func (c *Client) Put(ctx context.Context, payload interface{}) (int, error) {
 // Patch performs an HTTP PATCH request with the specified payload
 func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error) {
 	c.nrStackDepth++
+	c.method = http.MethodPatch
 
 	return c.Do(ctx, http.MethodPatch, payload)
 }
@@ -550,6 +588,7 @@ func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error) {
 // Delete performs an HTTP DELETE request
 func (c *Client) Delete(ctx context.Context) (int, error) {
 	c.nrStackDepth++
+	c.method = http.MethodDelete
 
 	return c.Do(ctx, http.MethodDelete, nil)
 }
