@@ -26,6 +26,7 @@ import (
 
 const (
 	requestIDHeader      = "Request-ID"
+	requestSourceHeader  = "Request-Source"
 	callingServiceHeader = "Calling-Service"
 	jsonType             = "application/json"
 	contentTypeHeader    = "Content-Type"
@@ -49,6 +50,12 @@ type Defaults struct {
 	// ServiceName is the name of the calling service
 	ServiceName string
 
+	// DontUseNewRelic will disable the New Relic transaction
+	// segment if it's not available or wanted.  This is useful
+	// for testing purposes and/or prototyping.  We should be
+	// using New Relic transaction wrappers if they are available.
+	DontUseNewRelic bool
+
 	// NewRelicTransactionProviderFunc is a function that
 	// provides the New Relic transaction to be used in the
 	// HTTP Request.  If this function is not set, the client
@@ -66,10 +73,15 @@ type Defaults struct {
 	// If this function is not set, the client will generate
 	// a new UUID for the Request id.
 	RequestIDProviderFunc func(ctx context.Context) (string, bool)
+
+	// RequestSourceProviderFunc is a function that provides
+	// the Request-Source header
+	RequestSourceProviderFunc func(ctx context.Context) (string, bool)
 }
 
 type IClient interface {
 	Delete(ctx context.Context) (int, error)
+	Duration() time.Duration
 	Do(ctx context.Context, method string, payload interface{}) (int, error)
 	Get(ctx context.Context) (int, error)
 	KeepRawResponse()
@@ -141,12 +153,14 @@ type Client struct {
 }
 
 var (
-	pkgServiceName           string
-	pkgUserAgent             string
-	pkgNRTxnProviderFunc     func(ctx context.Context) (newrelic.Transaction, bool)
-	pkgCtxLoggerProviderFunc func(ctx context.Context) (*logrus.Entry, bool)
-	pkgRequestIDProviderFunc func(cxt context.Context) (string, bool)
-	pkgOnce                  sync.Once
+	pkgServiceName               string
+	pkgUserAgent                 string
+	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
+	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
+	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
+	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
+	pkgOnce                      sync.Once
+	pkgDontUseNewRelic           bool
 
 	envHttpMocking = "MOCKING_HTTP"
 )
@@ -179,18 +193,20 @@ func ensurePackageVariables() {
 			os.Getenv("NAMESPACE"),
 			os.Getenv("TENANCY"))
 
-		// make sure new relic transaction provider exists
-		if pkgNRTxnProviderFunc == nil {
-			logrus.Warn("Client: No NewRelicTransactionProviderFunc default set.")
-			pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
-				// the newrelic StartSegment function will start a new transaction
-				return nil, false
+		if !pkgDontUseNewRelic {
+			// make sure new relic transaction provider exists
+			if pkgNRTxnProviderFunc == nil {
+				logrus.Warn("cbapiclient: No NewRelicTransactionProviderFunc default set.")
+				pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
+					// the newrelic StartSegment function will start a new transaction
+					return nil, false
+				}
 			}
 		}
 
 		// make sure the context logger provider exists
 		if pkgCtxLoggerProviderFunc == nil {
-			logrus.Warn("APIRequest: No ContextLoggerProviderFunc default set.  A new logger will be used")
+			logrus.Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be used for each request")
 			pkgCtxLoggerProviderFunc = func(ctx context.Context) (*logrus.Entry, bool) {
 				return logrus.WithFields(logrus.Fields{}), true
 			}
@@ -198,11 +214,19 @@ func ensurePackageVariables() {
 
 		// make sure the Request id provider exists
 		if pkgRequestIDProviderFunc == nil {
-			logrus.Warn("APIRequest: No RequestIDProviderFunc default set.  Generating new Request id")
+			logrus.Warn("cbapiclient: No RequestIDProviderFunc default set.  A new id will be generated for each request")
 			pkgRequestIDProviderFunc = func(ctx context.Context) (string, bool) {
 				// error can be safely ignored
 				reqUUID, _ := uuid.NewV4()
 				return reqUUID.String(), true
+			}
+		}
+
+		// make sure the request source provider exists
+		if pkgRequestSourceProviderFunc == nil {
+			logrus.Warn("cbapiclient: No RequestSourceProviderFunc default set.  The Request-Source header will be absent in each request")
+			pkgRequestSourceProviderFunc = func(ctx context.Context) (string, bool) {
+				return "", false
 			}
 		}
 	})
@@ -215,6 +239,7 @@ func SetDefaults(defaults *Defaults) {
 	pkgNRTxnProviderFunc = defaults.NewRelicTransactionProviderFunc
 	pkgCtxLoggerProviderFunc = defaults.ContextLoggerProviderFunc
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
+	pkgDontUseNewRelic = defaults.DontUseNewRelic
 }
 
 // this creates a http client with sensible defaults
@@ -245,8 +270,8 @@ func newHttpClient() *http.Client {
 }
 
 // NewClient will initialize and return a new client with a
-// fasthttp request and endpoint.  The client's content type
-// defaults to application/json
+// request and endpoint.  The client's content type defaults
+// to application/json
 func NewClient(uri string) (*Client, error) {
 
 	ensurePackageVariables()
@@ -281,15 +306,10 @@ func NewClient(uri string) (*Client, error) {
 func (c *Client) applyContextDependentHeaders(ctx context.Context) {
 	if requestID, ok := pkgRequestIDProviderFunc(ctx); ok {
 		c.headers[requestIDHeader] = requestID
-	} else {
-		// some apis will fail if the request id is not set,
-		// so we will stub one in here
-		reqUUID, _ := uuid.NewV4()
-		requestID = reqUUID.String()
-		logrus.WithFields(logrus.Fields{
-			"error_message": "REQUEST ID ERROR: the provided request ID provider is not returning a request id",
-		}).Errorf("REQUEST ID: %s", requestID)
-		c.headers[requestIDHeader] = requestID
+	}
+
+	if requestSource, ok := pkgRequestSourceProviderFunc(ctx); ok {
+		c.headers[requestSourceHeader] = requestSource
 	}
 }
 
@@ -328,8 +348,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}
 
 	// start the new relic capture
-	segment := c.startNewRelicSegment(ctx)
-	defer segment.End()
+	if !pkgDontUseNewRelic {
+		segment := c.startNewRelicSegment(ctx)
+		defer segment.End()
+	}
 
 	var (
 		err          error
@@ -566,6 +588,12 @@ func (c *Client) SetHeader(key string, value string) {
 	}
 
 	c.headers[key] = value
+}
+
+// Duration will return the elapsed time of the request in an
+// int64 nanosecond count
+func (c *Client) Duration() time.Duration {
+	return c.duration
 }
 
 //
