@@ -1,1 +1,1 @@
-package cbapiclient
+package cbapiclient_test
