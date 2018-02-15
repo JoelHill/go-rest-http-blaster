@@ -240,6 +240,7 @@ func SetDefaults(defaults *Defaults) {
 	pkgCtxLoggerProviderFunc = defaults.ContextLoggerProviderFunc
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
 	pkgDontUseNewRelic = defaults.DontUseNewRelic
+	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc
 }
 
 // this creates a http client with sensible defaults
