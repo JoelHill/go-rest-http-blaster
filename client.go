@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/newrelic/go-agent"
-	"github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -244,12 +243,10 @@ func ensurePackageVariables() {
 
 		// make sure the Request id provider exists
 		if pkgRequestIDProviderFunc == nil {
-			logrus.Warn("cbapiclient: No RequestIDProviderFunc default set.  A new id will be generated " +
-				"for each request")
+			logrus.Warn("cbapiclient: No RequestIDProviderFunc default set.  The Request-ID header will " +
+				"be absent in each request unless set manually")
 			pkgRequestIDProviderFunc = func(ctx context.Context) (string, bool) {
-				// error can be safely ignored
-				reqUUID, _ := uuid.NewV4()
-				return reqUUID.String(), true
+				return "", true
 			}
 		}
 
