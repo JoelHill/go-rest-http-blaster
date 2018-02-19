@@ -77,6 +77,17 @@ type Defaults struct {
 	// RequestSourceProviderFunc is a function that provides
 	// the Request-Source header
 	RequestSourceProviderFunc func(ctx context.Context) (string, bool)
+
+	// UserAgent is a package-level user agent header used for
+	// each outgoing request
+	UserAgent string
+
+	// StrictREQ014 will cancel any request and return an error if any of the following
+	// headers are missing:
+	// 		Request-ID
+	// 		Request-Source
+	// 		Calling-Service
+	StrictREQ014 bool
 }
 
 type IClient interface {
@@ -152,6 +163,21 @@ type Client struct {
 	rawresponse []byte
 }
 
+// req014HeaderCheck will check for the presence of required outgoing
+// headers per the InVision REQ014 documentation
+//
+// @see https://invision-engineering.herokuapp.com/requirements/REQ014/index.html
+type req014HeaderCheck struct {
+	requestID      bool
+	requestSource  bool
+	callingService bool
+}
+
+// check to see if REQ014 flags are closed
+func (c req014HeaderCheck) ok() bool {
+	return c.requestID && c.requestSource && c.callingService
+}
+
 var (
 	pkgServiceName               string
 	pkgUserAgent                 string
@@ -161,6 +187,7 @@ var (
 	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
 	pkgOnce                      sync.Once
 	pkgDontUseNewRelic           bool
+	pkgStrictREQ014              bool
 
 	envHttpMocking = "MOCKING_HTTP"
 )
@@ -186,12 +213,14 @@ func ensurePackageVariables() {
 			}
 		}
 
-		// user agent is service name + namespace + tenancy
-		pkgUserAgent = fmt.Sprintf(
-			"%s-%s-%s",
-			pkgServiceName,
-			os.Getenv("NAMESPACE"),
-			os.Getenv("TENANCY"))
+		// user agent is service name + hostname
+		if pkgUserAgent == "" {
+			if pkgServiceName == os.Getenv("HOSTNAME") {
+				pkgUserAgent = pkgServiceName
+			} else {
+				pkgUserAgent = fmt.Sprintf("%s-%s", pkgServiceName, os.Getenv("HOSTNAME"))
+			}
+		}
 
 		if !pkgDontUseNewRelic {
 			// make sure new relic transaction provider exists
@@ -206,15 +235,17 @@ func ensurePackageVariables() {
 
 		// make sure the context logger provider exists
 		if pkgCtxLoggerProviderFunc == nil {
-			logrus.Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be used for each request")
+			logrus.Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be " +
+				"used for each request")
 			pkgCtxLoggerProviderFunc = func(ctx context.Context) (*logrus.Entry, bool) {
-				return logrus.WithFields(logrus.Fields{}), true
+				return logrus.NewEntry(logrus.New()), true
 			}
 		}
 
 		// make sure the Request id provider exists
 		if pkgRequestIDProviderFunc == nil {
-			logrus.Warn("cbapiclient: No RequestIDProviderFunc default set.  A new id will be generated for each request")
+			logrus.Warn("cbapiclient: No RequestIDProviderFunc default set.  A new id will be generated " +
+				"for each request")
 			pkgRequestIDProviderFunc = func(ctx context.Context) (string, bool) {
 				// error can be safely ignored
 				reqUUID, _ := uuid.NewV4()
@@ -224,7 +255,8 @@ func ensurePackageVariables() {
 
 		// make sure the request source provider exists
 		if pkgRequestSourceProviderFunc == nil {
-			logrus.Warn("cbapiclient: No RequestSourceProviderFunc default set.  The Request-Source header will be absent in each request")
+			logrus.Warn("cbapiclient: No RequestSourceProviderFunc default set.  The Request-Source header " +
+				"will be absent in each request unless set manually")
 			pkgRequestSourceProviderFunc = func(ctx context.Context) (string, bool) {
 				return "", false
 			}
@@ -241,6 +273,8 @@ func SetDefaults(defaults *Defaults) {
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
 	pkgDontUseNewRelic = defaults.DontUseNewRelic
 	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc
+	pkgUserAgent = defaults.UserAgent
+	pkgStrictREQ014 = defaults.StrictREQ014
 }
 
 // this creates a http client with sensible defaults
@@ -339,14 +373,6 @@ func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
 func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, error) {
 
 	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
-	if canLog {
-		logger = logger.WithFields(logrus.Fields{
-			"func_name": "cbapiclient.doInternal",
-			"payload": map[string]interface{}{
-				"url": c.endpoint.String(),
-			},
-		})
-	}
 
 	// start the new relic capture
 	if !pkgDontUseNewRelic {
@@ -369,7 +395,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			payloadBytes, err = json.Marshal(payload)
 			if err != nil {
 				if canLog {
-					logger.WithField("error_message", err.Error()).Error("Request failed")
+					logger.WithField("error_message", err.Error()).Error("cbapiclient: request failed")
 				}
 				return http.StatusInternalServerError, err
 			}
@@ -381,10 +407,11 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			case string:
 				payloadBytes = []byte(payload.(string))
 			default:
+				err := errors.New("the payload cannot be converted to a byte slice")
 				if canLog {
-					logger.WithField("error_message", err.Error()).Error("Request failed")
+					logger.WithField("error_message", err.Error()).Error("cbapiclient: request failed")
 				}
-				return http.StatusInternalServerError, errors.New("the payload cannot be converted to a byte slice")
+				return http.StatusInternalServerError, err
 			}
 		}
 
@@ -392,31 +419,59 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}
 
 	if canLog {
-		logger.Debug("launching Request")
+		logger.Debugf("cbapiclient: launching %s request to %s", c.method, c.endpoint.String())
 	}
 
 	request, err := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
 	if err != nil {
+		if canLog {
+			logger.WithField("error_message", err.Error()).Error("cbapiclient: create request failed")
+		}
 		return http.StatusInternalServerError, err
 	}
 
+	check := req014HeaderCheck{}
 	for k, v := range c.headers {
 		request.Header.Set(k, v)
+		switch k {
+		case requestIDHeader:
+			check.requestID = true
+		case requestSourceHeader:
+			check.requestSource = true
+		case callingServiceHeader:
+			check.callingService = true
+		}
 	}
 
-	response, err := c.client.Do(request)
+	// if we are strictly enforcing request tracing
+	if pkgStrictREQ014 && !check.ok() {
+		err := errors.New("request tracing header requirements check failed")
+		if canLog {
+			logger.WithField("error_message", err.Error()).Error("cbapiclient: illegal request")
+		}
+		return http.StatusInternalServerError, err
+	}
+
+	response, responseErr := c.client.Do(request)
 	// close request body immediately
 	if reqCloseErr := request.Body.Close(); reqCloseErr != nil {
-		logger.Errorf("error closing request io reader: %v", reqCloseErr)
+		if canLog {
+			logger.WithField("error_message", reqCloseErr.Error()).Error("cbapiclient: request body close error")
+		}
 	}
 	// request error
-	if err != nil {
-		return http.StatusInternalServerError, err
+	if responseErr != nil {
+		if canLog {
+			logger.WithField("error_message", responseErr.Error()).Error("cbapiclient: request failed")
+		}
+		return http.StatusInternalServerError, responseErr
 	}
 	// defer response body reader close
 	defer func(resp *http.Response, logger *logrus.Entry) {
-		if err := resp.Body.Close(); err != nil {
-			logger.Errorf("error ")
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			if canLog {
+				logger.WithField("error_message", closeErr.Error()).Error("cbiclient: error closing response body")
+			}
 		}
 	}(response, logger)
 
@@ -424,9 +479,12 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	statusCode := response.StatusCode
 
 	// get response body
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return http.StatusInternalServerError, err
+	body, readErr := ioutil.ReadAll(response.Body)
+	if readErr != nil {
+		if canLog {
+			logger.WithField("error_message", readErr.Error()).Error("cbapiclient: error reading response raw bytes")
+		}
+		return http.StatusInternalServerError, readErr
 	}
 
 	// only keep the raw response if explicitly requested
@@ -441,7 +499,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		var unmarshalTo interface{}
 
 		// check if this is an error
-		notSuccess := statusCode < 200 || statusCode > 299
+		notSuccess := statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices
 		if notSuccess {
 			c.responseIsError = true
 		}
@@ -461,7 +519,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		if unmarshalTo != nil {
 			if err = json.Unmarshal(body, unmarshalTo); err != nil {
 				if canLog {
-					logger.WithField("error_message", err.Error()).Error("Request failed")
+					logger.WithField("error_message", err.Error()).Error("cbapiclient: json unmarshal error")
 				}
 				return http.StatusInternalServerError, err
 			}
@@ -483,7 +541,12 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 	c.nrStackDepth++
 
 	if c.endpoint == nil {
-		return http.StatusInternalServerError, errors.New("endpoint for Request not set")
+		err := errors.New("cbapiclient: endpoint for request not set")
+		logger, canLog := pkgCtxLoggerProviderFunc(ctx)
+		if canLog {
+			logger.WithField("error_message", err.Error()).Error("cbapiclient config error")
+		}
+		return http.StatusInternalServerError, err
 	}
 
 	if c.cb == nil {
