@@ -18,29 +18,33 @@
   * [func NewClient(uri string) (*Client, error)](#NewClient)
   * [func (c *Client) Delete(ctx context.Context) (int, error)](#Client.Delete)
   * [func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error)](#Client.Do)
+  * [func (c *Client) Duration() time.Duration](#Client.Duration)
   * [func (c *Client) Get(ctx context.Context) (int, error)](#Client.Get)
+  * [func (c *Client) KeepRawResponse()](#Client.KeepRawResponse)
   * [func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error)](#Client.Patch)
   * [func (c *Client) Post(ctx context.Context, payload interface{}) (int, error)](#Client.Post)
   * [func (c *Client) Put(ctx context.Context, payload interface{}) (int, error)](#Client.Put)
   * [func (c *Client) RawResponse() []byte](#Client.RawResponse)
-  * [func (c *Client) Recycle()](#Client.Recycle)
-  * [func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) *Client](#Client.SetCircuitBreaker)
-  * [func (c *Client) SetContentType(ct string) *Client](#Client.SetContentType)
+  * [func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype)](#Client.SetCircuitBreaker)
+  * [func (c *Client) SetContentType(ct string)](#Client.SetContentType)
+  * [func (c *Client) SetHeader(key string, value string)](#Client.SetHeader)
+  * [func (c *Client) SetNRTxnName(name string)](#Client.SetNRTxnName)
   * [func (c *Client) StatusCodeIsError() bool](#Client.StatusCodeIsError)
-  * [func (c *Client) WillSaturate(proto interface{}) *Client](#Client.WillSaturate)
-  * [func (c *Client) WillSaturateOnError(proto interface{}) *Client](#Client.WillSaturateOnError)
-  * [func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{}) *Client](#Client.WillSaturateWithStatusCode)
+  * [func (c *Client) WillSaturate(proto interface{})](#Client.WillSaturate)
+  * [func (c *Client) WillSaturateOnError(proto interface{})](#Client.WillSaturateOnError)
+  * [func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{})](#Client.WillSaturateWithStatusCode)
 * [type Defaults](#Defaults)
+* [type IClient](#IClient)
 
 
 #### <a name="pkg-files">Package files</a>
-[client.go](/src/github.com/InVisionApp/cbapiclient/client.go) 
+[client.go](https://github.com/InVisionApp/cbapiclient/blob/master/client.go) 
 
 
 
 
 
-## <a name="SetDefaults">func</a> [SetDefaults](/src/target/client.go?s=4862:4898#L161)
+## <a name="SetDefaults">func</a> [SetDefaults](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=8624:8660#L266)
 ``` go
 func SetDefaults(defaults *Defaults)
 ```
@@ -50,7 +54,7 @@ be used on all requests
 
 
 
-## <a name="CircuitBreakerPrototype">type</a> [CircuitBreakerPrototype](/src/target/client.go?s=476:577#L28)
+## <a name="CircuitBreakerPrototype">type</a> [CircuitBreakerPrototype](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=1337:1438#L43)
 ``` go
 type CircuitBreakerPrototype interface {
     Execute(func() (interface{}, error)) (interface{}, error)
@@ -67,30 +71,9 @@ CircuitBreakerPrototype defines the circuit breaker Execute function signature
 
 
 
-## <a name="Client">type</a> [Client](/src/target/client.go?s=1634:2640#L57)
+## <a name="Client">type</a> [Client](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3946:5272#L113)
 ``` go
 type Client struct {
-    // Prototype will be saturated when the Request succeeds.
-    Prototype interface{}
-
-    // ErrorPrototype will be saturated when the Request fails.
-    // A Request is implicitly considered a failure if the
-    // status code of the Response is not in the 2XX range.
-    ErrorPrototype interface{}
-
-    // Endpoint is the destination for the http Request
-    Endpoint *url.URL
-
-    // Request is the underlying fasthttp Request
-    Request *fasthttp.Request
-
-    // Response is the underlying fasthttp Response
-    Response *fasthttp.Response
-
-    // CustomPrototypes is a map of interfaces that
-    // will be saturated when specific response codes
-    // are returned from the endpoint
-    CustomPrototypes map[int]interface{}
     // contains filtered or unexported fields
 }
 ```
@@ -102,19 +85,19 @@ Client encapsulates the http Request functionality
 
 
 
-### <a name="NewClient">func</a> [NewClient](/src/target/client.go?s=5283:5326#L171)
+### <a name="NewClient">func</a> [NewClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=9963:10006#L307)
 ``` go
 func NewClient(uri string) (*Client, error)
 ```
 NewClient will initialize and return a new client with a
-fasthttp request and endpoint.  The client's content type
-defaults to application/json
+request and endpoint.  The client's content type defaults
+to application/json
 
 
 
 
 
-### <a name="Client.Delete">func</a> (\*Client) [Delete](/src/target/client.go?s=14269:14326#L485)
+### <a name="Client.Delete">func</a> (\*Client) [Delete](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21233:21290#L697)
 ``` go
 func (c *Client) Delete(ctx context.Context) (int, error)
 ```
@@ -123,7 +106,7 @@ Delete performs an HTTP DELETE request
 
 
 
-### <a name="Client.Do">func</a> (\*Client) [Do](/src/target/client.go?s=9755:9844#L334)
+### <a name="Client.Do">func</a> (\*Client) [Do](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=16260:16349#L531)
 ``` go
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error)
 ```
@@ -133,7 +116,17 @@ or from within a circuit breaker
 
 
 
-### <a name="Client.Get">func</a> (\*Client) [Get](/src/target/client.go?s=13479:13533#L457)
+### <a name="Client.Duration">func</a> (\*Client) [Duration](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20165:20206#L656)
+``` go
+func (c *Client) Duration() time.Duration
+```
+Duration will return the elapsed time of the request in an
+int64 nanosecond count
+
+
+
+
+### <a name="Client.Get">func</a> (\*Client) [Get](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20359:20413#L666)
 ``` go
 func (c *Client) Get(ctx context.Context) (int, error)
 ```
@@ -142,7 +135,17 @@ Get performs an HTTP GET request
 
 
 
-### <a name="Client.Patch">func</a> (\*Client) [Patch](/src/target/client.go?s=14080:14157#L478)
+### <a name="Client.KeepRawResponse">func</a> (\*Client) [KeepRawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17063:17097#L563)
+``` go
+func (c *Client) KeepRawResponse()
+```
+KeepRawResponse will cause the raw bytes from the http response
+to be retained
+
+
+
+
+### <a name="Client.Patch">func</a> (\*Client) [Patch](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21015:21092#L689)
 ``` go
 func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -151,7 +154,7 @@ Patch performs an HTTP PATCH request with the specified payload
 
 
 
-### <a name="Client.Post">func</a> (\*Client) [Post](/src/target/client.go?s=13662:13738#L464)
+### <a name="Client.Post">func</a> (\*Client) [Post](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20542:20618#L673)
 ``` go
 func (c *Client) Post(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -160,7 +163,7 @@ Post performs an HTTP POST request with the specified payload
 
 
 
-### <a name="Client.Put">func</a> (\*Client) [Put](/src/target/client.go?s=13870:13945#L471)
+### <a name="Client.Put">func</a> (\*Client) [Put](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20778:20853#L681)
 ``` go
 func (c *Client) Put(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -169,7 +172,7 @@ Put performs an HTTP PUT request with the specified payload
 
 
 
-### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](/src/target/client.go?s=10298:10335#L356)
+### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17215:17252#L569)
 ``` go
 func (c *Client) RawResponse() []byte
 ```
@@ -179,19 +182,9 @@ in the http response
 
 
 
-### <a name="Client.Recycle">func</a> (\*Client) [Recycle](/src/target/client.go?s=10737:10763#L372)
+### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19149:19211#L620)
 ``` go
-func (c *Client) Recycle()
-```
-Recycle will allow fasthttp to recycle the request/response back to their
-appropriate pools, which reduces GC pressure and usually improves performance
-
-
-
-
-### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](/src/target/client.go?s=12809:12879#L434)
-``` go
-func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) *Client
+func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype)
 ```
 SetCircuitBreaker sets the optional circuit breaker interface that
 wraps the http request.
@@ -199,9 +192,9 @@ wraps the http request.
 
 
 
-### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](/src/target/client.go?s=13247:13297#L445)
+### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19692:19734#L634)
 ``` go
-func (c *Client) SetContentType(ct string) *Client
+func (c *Client) SetContentType(ct string)
 ```
 SetContentType will set the request content type.  By default, all
 requests are of type application/json.  If you wish to use a
@@ -212,7 +205,25 @@ must be a byte slice or it must be convertible to a byte slice
 
 
 
-### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](/src/target/client.go?s=10506:10547#L366)
+### <a name="Client.SetHeader">func</a> (\*Client) [SetHeader](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19925:19977#L645)
+``` go
+func (c *Client) SetHeader(key string, value string)
+```
+SetHeader allows for custom http headers
+
+
+
+
+### <a name="Client.SetNRTxnName">func</a> (\*Client) [SetNRTxnName](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19284:19326#L625)
+``` go
+func (c *Client) SetNRTxnName(name string)
+```
+SetNRTxnName will set the New Relic transaction name
+
+
+
+
+### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17419:17460#L579)
 ``` go
 func (c *Client) StatusCodeIsError() bool
 ```
@@ -222,9 +233,9 @@ considered an error
 
 
 
-### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](/src/target/client.go?s=11396:11452#L396)
+### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17793:17841#L588)
 ``` go
-func (c *Client) WillSaturate(proto interface{}) *Client
+func (c *Client) WillSaturate(proto interface{})
 ```
 WillSaturate assigns the interface that will be saturated
 when the request succeeds.  It is assumed that the value passed
@@ -235,9 +246,9 @@ returned in the response instead
 
 
 
-### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](/src/target/client.go?s=11886:11949#L408)
+### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18264:18319#L598)
 ``` go
-func (c *Client) WillSaturateOnError(proto interface{}) *Client
+func (c *Client) WillSaturateOnError(proto interface{})
 ```
 WillSaturateOnError assigns the interface that will be saturated
 when the request fails.  It is assumed that the value passed
@@ -249,9 +260,9 @@ as any response with a status code not in the 2XX range.
 
 
 
-### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](/src/target/client.go?s=12481:12567#L422)
+### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18840:18918#L610)
 ``` go
-func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{}) *Client
+func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{})
 ```
 WillSaturateWithStatusCode assigns the interface that will be
 saturated when a specific response code is encountered.
@@ -265,11 +276,17 @@ unless specified here.
 
 
 
-## <a name="Defaults">type</a> [Defaults](/src/target/client.go?s=639:1578#L33)
+## <a name="Defaults">type</a> [Defaults](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=1500:3157#L48)
 ``` go
 type Defaults struct {
     // ServiceName is the name of the calling service
     ServiceName string
+
+    // DontUseNewRelic will disable the New Relic transaction
+    // segment if it's not available or wanted.  This is useful
+    // for testing purposes and/or prototyping.  We should be
+    // using New Relic transaction wrappers if they are available.
+    DontUseNewRelic bool
 
     // NewRelicTransactionProviderFunc is a function that
     // provides the New Relic transaction to be used in the
@@ -288,10 +305,56 @@ type Defaults struct {
     // If this function is not set, the client will generate
     // a new UUID for the Request id.
     RequestIDProviderFunc func(ctx context.Context) (string, bool)
+
+    // RequestSourceProviderFunc is a function that provides
+    // the Request-Source header
+    RequestSourceProviderFunc func(ctx context.Context) (string, bool)
+
+    // UserAgent is a package-level user agent header used for
+    // each outgoing request
+    UserAgent string
+
+    // StrictREQ014 will cancel any request and return an error if any of the following
+    // headers are missing:
+    // 		Request-ID
+    // 		Request-Source
+    // 		Calling-Service
+    StrictREQ014 bool
 }
 ```
 Defaults is a container for setting package level values
 
+
+
+
+
+
+
+
+
+
+## <a name="IClient">type</a> [IClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3159:3890#L92)
+``` go
+type IClient interface {
+    Delete(ctx context.Context) (int, error)
+    Duration() time.Duration
+    Do(ctx context.Context, method string, payload interface{}) (int, error)
+    Get(ctx context.Context) (int, error)
+    KeepRawResponse()
+    Post(ctx context.Context, payload interface{}) (int, error)
+    Put(ctx context.Context, payload interface{}) (int, error)
+    Patch(ctx context.Context, payload interface{}) (int, error)
+    RawResponse() []byte
+    SetCircuitBreaker(cb CircuitBreakerPrototype)
+    SetContentType(ct string)
+    SetHeader(key string, value string)
+    SetNRTxnName(name string)
+    StatusCodeIsError() bool
+    WillSaturate(proto interface{})
+    WillSaturateOnError(proto interface{})
+    WillSaturateWithStatusCode(statusCode int, proto interface{})
+}
+```
 
 
 
