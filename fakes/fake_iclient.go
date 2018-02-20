@@ -4,6 +4,7 @@ package fakes
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/InVisionApp/cbapiclient"
 )
@@ -21,6 +22,15 @@ type FakeIClient struct {
 	deleteReturnsOnCall map[int]struct {
 		result1 int
 		result2 error
+	}
+	DurationStub        func() time.Duration
+	durationMutex       sync.RWMutex
+	durationArgsForCall []struct{}
+	durationReturns     struct {
+		result1 time.Duration
+	}
+	durationReturnsOnCall map[int]struct {
+		result1 time.Duration
 	}
 	DoStub        func(ctx context.Context, method string, payload interface{}) (int, error)
 	doMutex       sync.RWMutex
@@ -125,6 +135,11 @@ type FakeIClient struct {
 	setNRTxnNameArgsForCall []struct {
 		name string
 	}
+	SetTimeoutMSStub        func(timeout time.Duration)
+	setTimeoutMSMutex       sync.RWMutex
+	setTimeoutMSArgsForCall []struct {
+		timeout time.Duration
+	}
 	StatusCodeIsErrorStub        func() bool
 	statusCodeIsErrorMutex       sync.RWMutex
 	statusCodeIsErrorArgsForCall []struct{}
@@ -203,6 +218,46 @@ func (fake *FakeIClient) DeleteReturnsOnCall(i int, result1 int, result2 error) 
 		result1 int
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeIClient) Duration() time.Duration {
+	fake.durationMutex.Lock()
+	ret, specificReturn := fake.durationReturnsOnCall[len(fake.durationArgsForCall)]
+	fake.durationArgsForCall = append(fake.durationArgsForCall, struct{}{})
+	fake.recordInvocation("Duration", []interface{}{})
+	fake.durationMutex.Unlock()
+	if fake.DurationStub != nil {
+		return fake.DurationStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.durationReturns.result1
+}
+
+func (fake *FakeIClient) DurationCallCount() int {
+	fake.durationMutex.RLock()
+	defer fake.durationMutex.RUnlock()
+	return len(fake.durationArgsForCall)
+}
+
+func (fake *FakeIClient) DurationReturns(result1 time.Duration) {
+	fake.DurationStub = nil
+	fake.durationReturns = struct {
+		result1 time.Duration
+	}{result1}
+}
+
+func (fake *FakeIClient) DurationReturnsOnCall(i int, result1 time.Duration) {
+	fake.DurationStub = nil
+	if fake.durationReturnsOnCall == nil {
+		fake.durationReturnsOnCall = make(map[int]struct {
+			result1 time.Duration
+		})
+	}
+	fake.durationReturnsOnCall[i] = struct {
+		result1 time.Duration
+	}{result1}
 }
 
 func (fake *FakeIClient) Do(ctx context.Context, method string, payload interface{}) (int, error) {
@@ -618,6 +673,30 @@ func (fake *FakeIClient) SetNRTxnNameArgsForCall(i int) string {
 	return fake.setNRTxnNameArgsForCall[i].name
 }
 
+func (fake *FakeIClient) SetTimeoutMS(timeout time.Duration) {
+	fake.setTimeoutMSMutex.Lock()
+	fake.setTimeoutMSArgsForCall = append(fake.setTimeoutMSArgsForCall, struct {
+		timeout time.Duration
+	}{timeout})
+	fake.recordInvocation("SetTimeoutMS", []interface{}{timeout})
+	fake.setTimeoutMSMutex.Unlock()
+	if fake.SetTimeoutMSStub != nil {
+		fake.SetTimeoutMSStub(timeout)
+	}
+}
+
+func (fake *FakeIClient) SetTimeoutMSCallCount() int {
+	fake.setTimeoutMSMutex.RLock()
+	defer fake.setTimeoutMSMutex.RUnlock()
+	return len(fake.setTimeoutMSArgsForCall)
+}
+
+func (fake *FakeIClient) SetTimeoutMSArgsForCall(i int) time.Duration {
+	fake.setTimeoutMSMutex.RLock()
+	defer fake.setTimeoutMSMutex.RUnlock()
+	return fake.setTimeoutMSArgsForCall[i].timeout
+}
+
 func (fake *FakeIClient) StatusCodeIsError() bool {
 	fake.statusCodeIsErrorMutex.Lock()
 	ret, specificReturn := fake.statusCodeIsErrorReturnsOnCall[len(fake.statusCodeIsErrorArgsForCall)]
@@ -736,6 +815,8 @@ func (fake *FakeIClient) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
+	fake.durationMutex.RLock()
+	defer fake.durationMutex.RUnlock()
 	fake.doMutex.RLock()
 	defer fake.doMutex.RUnlock()
 	fake.getMutex.RLock()
@@ -758,6 +839,8 @@ func (fake *FakeIClient) Invocations() map[string][][]interface{} {
 	defer fake.setHeaderMutex.RUnlock()
 	fake.setNRTxnNameMutex.RLock()
 	defer fake.setNRTxnNameMutex.RUnlock()
+	fake.setTimeoutMSMutex.RLock()
+	defer fake.setTimeoutMSMutex.RUnlock()
 	fake.statusCodeIsErrorMutex.RLock()
 	defer fake.statusCodeIsErrorMutex.RUnlock()
 	fake.willSaturateMutex.RLock()

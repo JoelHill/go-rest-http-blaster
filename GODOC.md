@@ -29,6 +29,7 @@
   * [func (c *Client) SetContentType(ct string)](#Client.SetContentType)
   * [func (c *Client) SetHeader(key string, value string)](#Client.SetHeader)
   * [func (c *Client) SetNRTxnName(name string)](#Client.SetNRTxnName)
+  * [func (c *Client) SetTimeoutMS(timeout time.Duration)](#Client.SetTimeoutMS)
   * [func (c *Client) StatusCodeIsError() bool](#Client.StatusCodeIsError)
   * [func (c *Client) WillSaturate(proto interface{})](#Client.WillSaturate)
   * [func (c *Client) WillSaturateOnError(proto interface{})](#Client.WillSaturateOnError)
@@ -44,7 +45,7 @@
 
 
 
-## <a name="SetDefaults">func</a> [SetDefaults](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=8624:8660#L266)
+## <a name="SetDefaults">func</a> [SetDefaults](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=8661:8697#L267)
 ``` go
 func SetDefaults(defaults *Defaults)
 ```
@@ -71,7 +72,7 @@ CircuitBreakerPrototype defines the circuit breaker Execute function signature
 
 
 
-## <a name="Client">type</a> [Client](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3946:5272#L113)
+## <a name="Client">type</a> [Client](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3983:5309#L114)
 ``` go
 type Client struct {
     // contains filtered or unexported fields
@@ -85,7 +86,7 @@ Client encapsulates the http Request functionality
 
 
 
-### <a name="NewClient">func</a> [NewClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=9963:10006#L307)
+### <a name="NewClient">func</a> [NewClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=10000:10043#L308)
 ``` go
 func NewClient(uri string) (*Client, error)
 ```
@@ -97,7 +98,7 @@ to application/json
 
 
 
-### <a name="Client.Delete">func</a> (\*Client) [Delete](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21233:21290#L697)
+### <a name="Client.Delete">func</a> (\*Client) [Delete](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21557:21614#L708)
 ``` go
 func (c *Client) Delete(ctx context.Context) (int, error)
 ```
@@ -106,7 +107,7 @@ Delete performs an HTTP DELETE request
 
 
 
-### <a name="Client.Do">func</a> (\*Client) [Do](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=16260:16349#L531)
+### <a name="Client.Do">func</a> (\*Client) [Do](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=16297:16386#L532)
 ``` go
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error)
 ```
@@ -116,7 +117,7 @@ or from within a circuit breaker
 
 
 
-### <a name="Client.Duration">func</a> (\*Client) [Duration](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20165:20206#L656)
+### <a name="Client.Duration">func</a> (\*Client) [Duration](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20489:20530#L667)
 ``` go
 func (c *Client) Duration() time.Duration
 ```
@@ -126,7 +127,7 @@ int64 nanosecond count
 
 
 
-### <a name="Client.Get">func</a> (\*Client) [Get](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20359:20413#L666)
+### <a name="Client.Get">func</a> (\*Client) [Get](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20683:20737#L677)
 ``` go
 func (c *Client) Get(ctx context.Context) (int, error)
 ```
@@ -135,7 +136,7 @@ Get performs an HTTP GET request
 
 
 
-### <a name="Client.KeepRawResponse">func</a> (\*Client) [KeepRawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17063:17097#L563)
+### <a name="Client.KeepRawResponse">func</a> (\*Client) [KeepRawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17100:17134#L564)
 ``` go
 func (c *Client) KeepRawResponse()
 ```
@@ -145,7 +146,7 @@ to be retained
 
 
 
-### <a name="Client.Patch">func</a> (\*Client) [Patch](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21015:21092#L689)
+### <a name="Client.Patch">func</a> (\*Client) [Patch](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21339:21416#L700)
 ``` go
 func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -154,7 +155,7 @@ Patch performs an HTTP PATCH request with the specified payload
 
 
 
-### <a name="Client.Post">func</a> (\*Client) [Post](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20542:20618#L673)
+### <a name="Client.Post">func</a> (\*Client) [Post](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20866:20942#L684)
 ``` go
 func (c *Client) Post(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -163,7 +164,7 @@ Post performs an HTTP POST request with the specified payload
 
 
 
-### <a name="Client.Put">func</a> (\*Client) [Put](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20778:20853#L681)
+### <a name="Client.Put">func</a> (\*Client) [Put](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21102:21177#L692)
 ``` go
 func (c *Client) Put(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -172,7 +173,7 @@ Put performs an HTTP PUT request with the specified payload
 
 
 
-### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17215:17252#L569)
+### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17252:17289#L570)
 ``` go
 func (c *Client) RawResponse() []byte
 ```
@@ -182,7 +183,7 @@ in the http response
 
 
 
-### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19149:19211#L620)
+### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19473:19535#L631)
 ``` go
 func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype)
 ```
@@ -192,7 +193,7 @@ wraps the http request.
 
 
 
-### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19692:19734#L634)
+### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20016:20058#L645)
 ``` go
 func (c *Client) SetContentType(ct string)
 ```
@@ -205,7 +206,7 @@ must be a byte slice or it must be convertible to a byte slice
 
 
 
-### <a name="Client.SetHeader">func</a> (\*Client) [SetHeader](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19925:19977#L645)
+### <a name="Client.SetHeader">func</a> (\*Client) [SetHeader](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20249:20301#L656)
 ``` go
 func (c *Client) SetHeader(key string, value string)
 ```
@@ -214,7 +215,7 @@ SetHeader allows for custom http headers
 
 
 
-### <a name="Client.SetNRTxnName">func</a> (\*Client) [SetNRTxnName](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19284:19326#L625)
+### <a name="Client.SetNRTxnName">func</a> (\*Client) [SetNRTxnName](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19608:19650#L636)
 ``` go
 func (c *Client) SetNRTxnName(name string)
 ```
@@ -223,7 +224,17 @@ SetNRTxnName will set the New Relic transaction name
 
 
 
-### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17419:17460#L579)
+### <a name="Client.SetTimeoutMS">func</a> (\*Client) [SetTimeoutMS](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17509:17561#L580)
+``` go
+func (c *Client) SetTimeoutMS(timeout time.Duration)
+```
+SetTimeoutMS sets the maximum number of milliseconds allowed for
+a request to complete.  The default request timeout is 8 seconds (8000 ms)
+
+
+
+
+### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17743:17784#L590)
 ``` go
 func (c *Client) StatusCodeIsError() bool
 ```
@@ -233,7 +244,7 @@ considered an error
 
 
 
-### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17793:17841#L588)
+### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18117:18165#L599)
 ``` go
 func (c *Client) WillSaturate(proto interface{})
 ```
@@ -246,7 +257,7 @@ returned in the response instead
 
 
 
-### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18264:18319#L598)
+### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18588:18643#L609)
 ``` go
 func (c *Client) WillSaturateOnError(proto interface{})
 ```
@@ -260,7 +271,7 @@ as any response with a status code not in the 2XX range.
 
 
 
-### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18840:18918#L610)
+### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19164:19242#L621)
 ``` go
 func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{})
 ```
@@ -333,7 +344,7 @@ Defaults is a container for setting package level values
 
 
 
-## <a name="IClient">type</a> [IClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3159:3890#L92)
+## <a name="IClient">type</a> [IClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3159:3927#L92)
 ``` go
 type IClient interface {
     Delete(ctx context.Context) (int, error)
@@ -349,6 +360,7 @@ type IClient interface {
     SetContentType(ct string)
     SetHeader(key string, value string)
     SetNRTxnName(name string)
+    SetTimeoutMS(timeout time.Duration)
     StatusCodeIsError() bool
     WillSaturate(proto interface{})
     WillSaturateOnError(proto interface{})

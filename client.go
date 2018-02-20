@@ -103,6 +103,7 @@ type IClient interface {
 	SetContentType(ct string)
 	SetHeader(key string, value string)
 	SetNRTxnName(name string)
+	SetTimeoutMS(timeout time.Duration)
 	StatusCodeIsError() bool
 	WillSaturate(proto interface{})
 	WillSaturateOnError(proto interface{})
@@ -572,6 +573,16 @@ func (c *Client) RawResponse() []byte {
 	}
 
 	return []byte{}
+}
+
+// SetTimeoutMS sets the maximum number of milliseconds allowed for
+// a request to complete.  The default request timeout is 8 seconds (8000 ms)
+func (c *Client) SetTimeoutMS(timeout time.Duration) {
+	if timeout < 0 {
+		timeout = 0
+	}
+
+	c.client.Timeout = timeout * time.Millisecond
 }
 
 // StatusCodeIsError is a shortcut to determine if the status code is
