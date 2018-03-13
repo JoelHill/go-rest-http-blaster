@@ -462,7 +462,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			default:
 				err := errors.New("the payload cannot be converted to a byte slice")
 				if canLog {
-					logger.WithField("error_message", err.Error()).Error("cbapiclient: request failed")
+					logger.WithFields(logrus.Fields{
+						"error_message": err.Error(),
+						"type":          NAME,
+					}).Error("request failed")
 				}
 				c.internalError = true
 				return http.StatusInternalServerError, err
@@ -473,13 +476,17 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}
 
 	if canLog {
-		logger.WithField("type", "cbapiclient").Infof("cbapiclient launching %s request to %s", c.method, c.endpoint.Host)
+		logger.WithField("type", "cbapiclient").
+			Debugf("launching %s request to %s", c.method, c.endpoint.Host)
 	}
 
 	request, err := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
 	if err != nil {
 		if canLog {
-			logger.WithField("error_message", err.Error()).Error("cbapiclient: create request failed")
+			logger.WithFields(logrus.Fields{
+				"error_message": err.Error(),
+				"type":          NAME,
+			}).Error("request failed")
 		}
 		c.internalError = true
 		return http.StatusInternalServerError, err
@@ -502,7 +509,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	if pkgStrictREQ014 && !check.ok() {
 		err := errors.New("request tracing header requirements check failed")
 		if canLog {
-			logger.WithField("error_message", err.Error()).Error("cbapiclient: illegal request")
+			logger.WithFields(logrus.Fields{
+				"error_message": err.Error(),
+				"type":          NAME,
+			}).Error("request failed")
 		}
 		c.internalError = true
 		return http.StatusInternalServerError, err
@@ -511,14 +521,29 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	response, responseErr := c.client.Do(request)
 	// close request body immediately
 	if reqCloseErr := request.Body.Close(); reqCloseErr != nil {
+		// note this will not cause the request to fail
 		if canLog {
-			logger.WithField("error_message", reqCloseErr.Error()).Error("cbapiclient: request body close error")
+			logger.WithFields(logrus.Fields{
+				"error_message": reqCloseErr.Error(),
+				"type":          NAME,
+			}).Error("close request body failed")
 		}
 	}
 	// request error
 	if responseErr != nil {
 		if canLog {
-			logger.WithField("error_message", responseErr.Error()).Error("cbapiclient: request failed")
+			// if this is a timeout, make note of it
+			if timeoutErr, ok := responseErr.(net.Error); ok && timeoutErr.Timeout() {
+				logger.WithFields(logrus.Fields{
+					"error_message": fmt.Sprintf("timed out calling %s: %s-%s", c.method, c.endpoint.Host, c.endpoint.Path),
+					"type":          fmt.Sprintf("%s_TIMEOUT", NAME),
+				}).Error("request failed")
+			} else {
+				logger.WithFields(logrus.Fields{
+					"error_message": responseErr.Error(),
+					"type":          NAME,
+				}).Error("request failed")
+			}
 		}
 		c.internalError = true
 		return http.StatusInternalServerError, responseErr
@@ -527,7 +552,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	defer func(resp *http.Response, logger *logrus.Entry) {
 		if closeErr := resp.Body.Close(); closeErr != nil {
 			if canLog {
-				logger.WithField("error_message", closeErr.Error()).Error("cbiclient: error closing response body")
+				logger.WithFields(logrus.Fields{
+					"error_message": closeErr.Error(),
+					"type":          NAME,
+				}).Error("unable to close response body")
 			}
 		}
 	}(response, logger)
@@ -539,7 +567,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	body, readErr := ioutil.ReadAll(response.Body)
 	if readErr != nil {
 		if canLog {
-			logger.WithField("error_message", readErr.Error()).Error("cbapiclient: error reading response raw bytes")
+			logger.WithFields(logrus.Fields{
+				"error_message": readErr.Error(),
+				"type":          NAME,
+			}).Error("request failed")
 		}
 		c.internalError = true
 		return http.StatusInternalServerError, readErr
@@ -577,7 +608,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		if unmarshalTo != nil {
 			if err = json.Unmarshal(body, unmarshalTo); err != nil {
 				if canLog {
-					logger.WithField("error_message", err.Error()).Error("cbapiclient: json unmarshal error")
+					logger.WithFields(logrus.Fields{
+						"error_message": err.Error(),
+						"type":          NAME,
+					}).Error("request failed")
 				}
 				c.internalError = true
 				return http.StatusInternalServerError, err
@@ -586,6 +620,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}
 
 	c.statsdReportResponse(statusCode)
+	if canLog {
+		logger.WithField("type", "cbapiclient").
+			Debugf("%s request to %s returned code %d", c.method, c.endpoint.Host, statusCode)
+	}
 
 	return statusCode, nil
 }
@@ -599,8 +637,12 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 		err := errors.New("cbapiclient: endpoint for request not set")
 		logger, canLog := pkgCtxLoggerProviderFunc(ctx)
 		if canLog {
-			logger.WithField("error_message", err.Error()).Error("cbapiclient config error")
+			logger.WithFields(logrus.Fields{
+				"error_message": err.Error(),
+				"type":          NAME,
+			}).Error("cbapiclient config error")
 		}
+		c.internalError = true
 		return http.StatusInternalServerError, err
 	}
 
