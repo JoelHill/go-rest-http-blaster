@@ -39,9 +39,18 @@ const (
 	maxIdleConnsPerHost  = 100              // the maximum number of idle connections to keep around for reuse
 )
 
+// NAME is the name of this library
+const NAME = "cbapiclient"
+
 // CircuitBreakerPrototype defines the circuit breaker Execute function signature
 type CircuitBreakerPrototype interface {
 	Execute(func() (interface{}, error)) (interface{}, error)
+}
+
+// StatsdClientPrototype defines the statsd client functions used in this library
+type StatsdClientPrototype interface {
+	Incr(name string, tags []string, rate float64) error
+	Timing(name string, value time.Duration, tags []string, rate float64) error
 }
 
 // Defaults is a container for setting package level values
@@ -87,6 +96,9 @@ type Defaults struct {
 	// 		Request-Source
 	// 		Calling-Service
 	StrictREQ014 bool
+
+	// StatsdRate is the statsd reporting rate
+	StatsdRate float64
 }
 
 type IClient interface {
@@ -100,6 +112,7 @@ type IClient interface {
 	Patch(ctx context.Context, payload interface{}) (int, error)
 	RawResponse() []byte
 	SetCircuitBreaker(cb CircuitBreakerPrototype)
+	SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string)
 	SetContentType(ct string)
 	SetHeader(key string, value string)
 	SetNRTxnName(name string)
@@ -161,6 +174,15 @@ type Client struct {
 
 	// raw response bytes
 	rawresponse []byte
+
+	// internal statsd client
+	statsdClient StatsdClientPrototype
+
+	// statsd tags
+	statsdTags []string
+
+	// flag to set this object in an error state
+	internalError bool
 }
 
 // req014HeaderCheck will check for the presence of required outgoing
@@ -188,6 +210,7 @@ var (
 	pkgOnce                      sync.Once
 	pkgDontUseNewRelic           bool
 	pkgStrictREQ014              bool
+	pkgStatsdRate                float64
 
 	envHttpMocking = "MOCKING_HTTP"
 )
@@ -225,7 +248,8 @@ func ensurePackageVariables() {
 		if !pkgDontUseNewRelic {
 			// make sure new relic transaction provider exists
 			if pkgNRTxnProviderFunc == nil {
-				logrus.Warn("cbapiclient: No NewRelicTransactionProviderFunc default set.")
+				logrus.WithField("type", NAME).
+					Warn("no NewRelicTransactionProviderFunc default set")
 				pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
 					// the newrelic StartSegment function will start a new transaction
 					return nil, false
@@ -235,8 +259,9 @@ func ensurePackageVariables() {
 
 		// make sure the context logger provider exists
 		if pkgCtxLoggerProviderFunc == nil {
-			logrus.Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be " +
-				"used for each request")
+			logrus.WithField("type", NAME).
+				Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be " +
+					"used for each request")
 			pkgCtxLoggerProviderFunc = func(ctx context.Context) (*logrus.Entry, bool) {
 				return logrus.NewEntry(logrus.New()), true
 			}
@@ -244,8 +269,9 @@ func ensurePackageVariables() {
 
 		// make sure the Request id provider exists
 		if pkgRequestIDProviderFunc == nil {
-			logrus.Warn("cbapiclient: No RequestIDProviderFunc default set.  The Request-ID header will " +
-				"be absent in each request unless set manually")
+			logrus.WithField("type", NAME).
+				Warn("cbapiclient: No RequestIDProviderFunc default set.  The Request-ID header will " +
+					"be absent in each request unless set manually")
 			pkgRequestIDProviderFunc = func(ctx context.Context) (string, bool) {
 				return "", true
 			}
@@ -253,8 +279,9 @@ func ensurePackageVariables() {
 
 		// make sure the request source provider exists
 		if pkgRequestSourceProviderFunc == nil {
-			logrus.Warn("cbapiclient: No RequestSourceProviderFunc default set.  The Request-Source header " +
-				"will be absent in each request unless set manually")
+			logrus.WithField("type", NAME).
+				Warn("cbapiclient: No RequestSourceProviderFunc default set.  The Request-Source header " +
+					"will be absent in each request unless set manually")
 			pkgRequestSourceProviderFunc = func(ctx context.Context) (string, bool) {
 				return "", false
 			}
@@ -273,6 +300,7 @@ func SetDefaults(defaults *Defaults) {
 	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc
 	pkgUserAgent = defaults.UserAgent
 	pkgStrictREQ014 = defaults.StrictREQ014
+	pkgStatsdRate = defaults.StatsdRate
 }
 
 // this creates a http client with sensible defaults
@@ -365,6 +393,21 @@ func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
 	return newrelic.StartSegment(txn, strings.Split(funcPath[len(funcPath)-1], ".")[1]+c.endpoint.RawPath)
 }
 
+// reports the status code from the response
+func (c *Client) statsdReportResponse(statusCode int) {
+	if c.statsdClient != nil {
+		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", statusCode))
+		c.statsdClient.Incr(NAME, tags, pkgStatsdRate)
+	}
+}
+
+// reports the duration of the request
+func (c *Client) statsdReportDuration() {
+	if c.statsdClient != nil {
+		c.statsdClient.Timing(NAME, c.duration, c.statsdTags, pkgStatsdRate)
+	}
+}
+
 // doInternal will perform the actual request.  This function
 // is either called from within a circuit breaker, or directly
 // from Do.
@@ -386,6 +429,14 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	// set default headers
 	c.applyContextDependentHeaders(ctx)
 
+	// start the clock
+	defer func(c *Client, begin time.Time) {
+		if !c.internalError {
+			c.duration = time.Now().Sub(begin)
+			c.statsdReportDuration()
+		}
+	}(c, time.Now())
+
 	// process the payload if it exists
 	if payload != nil {
 		// if it's a json Request, marshal the payload
@@ -393,8 +444,12 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			payloadBytes, err = json.Marshal(payload)
 			if err != nil {
 				if canLog {
-					logger.WithField("error_message", err.Error()).Error("cbapiclient: request failed")
+					logger.WithFields(logrus.Fields{
+						"error_message": err.Error(),
+						"type":          NAME,
+					}).Error("request failed")
 				}
+				c.internalError = true
 				return http.StatusInternalServerError, err
 			}
 		} else {
@@ -409,6 +464,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 				if canLog {
 					logger.WithField("error_message", err.Error()).Error("cbapiclient: request failed")
 				}
+				c.internalError = true
 				return http.StatusInternalServerError, err
 			}
 		}
@@ -417,7 +473,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}
 
 	if canLog {
-		logger.Debugf("cbapiclient: launching %s request to %s", c.method, c.endpoint.String())
+		logger.WithField("type", "cbapiclient").Infof("cbapiclient launching %s request to %s", c.method, c.endpoint.Host)
 	}
 
 	request, err := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
@@ -425,6 +481,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		if canLog {
 			logger.WithField("error_message", err.Error()).Error("cbapiclient: create request failed")
 		}
+		c.internalError = true
 		return http.StatusInternalServerError, err
 	}
 
@@ -447,6 +504,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		if canLog {
 			logger.WithField("error_message", err.Error()).Error("cbapiclient: illegal request")
 		}
+		c.internalError = true
 		return http.StatusInternalServerError, err
 	}
 
@@ -462,6 +520,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		if canLog {
 			logger.WithField("error_message", responseErr.Error()).Error("cbapiclient: request failed")
 		}
+		c.internalError = true
 		return http.StatusInternalServerError, responseErr
 	}
 	// defer response body reader close
@@ -482,6 +541,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		if canLog {
 			logger.WithField("error_message", readErr.Error()).Error("cbapiclient: error reading response raw bytes")
 		}
+		c.internalError = true
 		return http.StatusInternalServerError, readErr
 	}
 
@@ -519,10 +579,13 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 				if canLog {
 					logger.WithField("error_message", err.Error()).Error("cbapiclient: json unmarshal error")
 				}
+				c.internalError = true
 				return http.StatusInternalServerError, err
 			}
 		}
 	}
+
+	c.statsdReportResponse(statusCode)
 
 	return statusCode, nil
 }
@@ -530,12 +593,6 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 // Do will prepare the request and either run it directly
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
-
-	// start the clock
-	defer func(c *Client, begin time.Time) {
-		c.duration = time.Now().Sub(begin)
-	}(c, time.Now())
-
 	c.nrStackDepth++
 
 	if c.endpoint == nil {
@@ -630,6 +687,17 @@ func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{}) {
 // wraps the http request.
 func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) {
 	c.cb = cb
+}
+
+// SetStatsdClientWithTags will set the request's statsd client and all associated tags.
+// Note that cbapiclient add its own tag in the form of
+// 		cbapiclient:{VERB}-{HOST}-{PATH}
+// It will also add the following tags for responses from http requests:
+//		status_code:{STATUS_CODE}
+//		duration:{DURATION}
+func (c *Client) SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string) {
+	c.statsdClient = sd
+	c.statsdTags = append(tags, fmt.Sprintf("cbapiclient:%s-%s-%s", c.method, c.endpoint.Host, c.endpoint.Path))
 }
 
 // SetNRTxnName will set the New Relic transaction name
