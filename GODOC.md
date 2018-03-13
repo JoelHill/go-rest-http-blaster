@@ -12,6 +12,7 @@
 
 
 ## <a name="pkg-index">Index</a>
+* [Constants](#pkg-constants)
 * [func SetDefaults(defaults *Defaults)](#SetDefaults)
 * [type CircuitBreakerPrototype](#CircuitBreakerPrototype)
 * [type Client](#Client)
@@ -29,6 +30,7 @@
   * [func (c *Client) SetContentType(ct string)](#Client.SetContentType)
   * [func (c *Client) SetHeader(key string, value string)](#Client.SetHeader)
   * [func (c *Client) SetNRTxnName(name string)](#Client.SetNRTxnName)
+  * [func (c *Client) SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string)](#Client.SetStatsdClientWithTags)
   * [func (c *Client) SetTimeoutMS(timeout time.Duration)](#Client.SetTimeoutMS)
   * [func (c *Client) StatusCodeIsError() bool](#Client.StatusCodeIsError)
   * [func (c *Client) WillSaturate(proto interface{})](#Client.WillSaturate)
@@ -36,16 +38,23 @@
   * [func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{})](#Client.WillSaturateWithStatusCode)
 * [type Defaults](#Defaults)
 * [type IClient](#IClient)
+* [type StatsdClientPrototype](#StatsdClientPrototype)
 
 
 #### <a name="pkg-files">Package files</a>
 [client.go](https://github.com/InVisionApp/cbapiclient/blob/master/client.go) 
 
 
+## <a name="pkg-constants">Constants</a>
+``` go
+const NAME = "cbapiclient"
+```
+NAME is the name of this library
 
 
 
-## <a name="SetDefaults">func</a> [SetDefaults](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=8661:8697#L267)
+
+## <a name="SetDefaults">func</a> [SetDefaults](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=9424:9460#L294)
 ``` go
 func SetDefaults(defaults *Defaults)
 ```
@@ -55,7 +64,7 @@ be used on all requests
 
 
 
-## <a name="CircuitBreakerPrototype">type</a> [CircuitBreakerPrototype](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=1337:1438#L43)
+## <a name="CircuitBreakerPrototype">type</a> [CircuitBreakerPrototype](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=1401:1502#L46)
 ``` go
 type CircuitBreakerPrototype interface {
     Execute(func() (interface{}, error)) (interface{}, error)
@@ -72,7 +81,7 @@ CircuitBreakerPrototype defines the circuit breaker Execute function signature
 
 
 
-## <a name="Client">type</a> [Client](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3983:5309#L114)
+## <a name="Client">type</a> [Client](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=4433:5928#L127)
 ``` go
 type Client struct {
     // contains filtered or unexported fields
@@ -86,7 +95,7 @@ Client encapsulates the http Request functionality
 
 
 
-### <a name="NewClient">func</a> [NewClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=10000:10043#L308)
+### <a name="NewClient">func</a> [NewClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=10800:10843#L336)
 ``` go
 func NewClient(uri string) (*Client, error)
 ```
@@ -98,7 +107,7 @@ to application/json
 
 
 
-### <a name="Client.Delete">func</a> (\*Client) [Delete](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21557:21614#L708)
+### <a name="Client.Delete">func</a> (\*Client) [Delete](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=24599:24656#L818)
 ``` go
 func (c *Client) Delete(ctx context.Context) (int, error)
 ```
@@ -107,7 +116,7 @@ Delete performs an HTTP DELETE request
 
 
 
-### <a name="Client.Do">func</a> (\*Client) [Do](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=16297:16386#L532)
+### <a name="Client.Do">func</a> (\*Client) [Do](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18852:18941#L633)
 ``` go
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error)
 ```
@@ -117,7 +126,7 @@ or from within a circuit breaker
 
 
 
-### <a name="Client.Duration">func</a> (\*Client) [Duration](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20489:20530#L667)
+### <a name="Client.Duration">func</a> (\*Client) [Duration](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=23531:23572#L777)
 ``` go
 func (c *Client) Duration() time.Duration
 ```
@@ -127,7 +136,7 @@ int64 nanosecond count
 
 
 
-### <a name="Client.Get">func</a> (\*Client) [Get](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20683:20737#L677)
+### <a name="Client.Get">func</a> (\*Client) [Get](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=23725:23779#L787)
 ``` go
 func (c *Client) Get(ctx context.Context) (int, error)
 ```
@@ -136,7 +145,7 @@ Get performs an HTTP GET request
 
 
 
-### <a name="Client.KeepRawResponse">func</a> (\*Client) [KeepRawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17100:17134#L564)
+### <a name="Client.KeepRawResponse">func</a> (\*Client) [KeepRawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19614:19648#L663)
 ``` go
 func (c *Client) KeepRawResponse()
 ```
@@ -146,7 +155,7 @@ to be retained
 
 
 
-### <a name="Client.Patch">func</a> (\*Client) [Patch](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21339:21416#L700)
+### <a name="Client.Patch">func</a> (\*Client) [Patch](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=24381:24458#L810)
 ``` go
 func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -155,7 +164,7 @@ Patch performs an HTTP PATCH request with the specified payload
 
 
 
-### <a name="Client.Post">func</a> (\*Client) [Post](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20866:20942#L684)
+### <a name="Client.Post">func</a> (\*Client) [Post](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=23908:23984#L794)
 ``` go
 func (c *Client) Post(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -164,7 +173,7 @@ Post performs an HTTP POST request with the specified payload
 
 
 
-### <a name="Client.Put">func</a> (\*Client) [Put](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21102:21177#L692)
+### <a name="Client.Put">func</a> (\*Client) [Put](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=24144:24219#L802)
 ``` go
 func (c *Client) Put(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -173,7 +182,7 @@ Put performs an HTTP PUT request with the specified payload
 
 
 
-### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17252:17289#L570)
+### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19766:19803#L669)
 ``` go
 func (c *Client) RawResponse() []byte
 ```
@@ -183,7 +192,7 @@ in the http response
 
 
 
-### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19473:19535#L631)
+### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21987:22049#L730)
 ``` go
 func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype)
 ```
@@ -193,7 +202,7 @@ wraps the http request.
 
 
 
-### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20016:20058#L645)
+### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=23058:23100#L755)
 ``` go
 func (c *Client) SetContentType(ct string)
 ```
@@ -206,7 +215,7 @@ must be a byte slice or it must be convertible to a byte slice
 
 
 
-### <a name="Client.SetHeader">func</a> (\*Client) [SetHeader](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20249:20301#L656)
+### <a name="Client.SetHeader">func</a> (\*Client) [SetHeader](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=23291:23343#L766)
 ``` go
 func (c *Client) SetHeader(key string, value string)
 ```
@@ -215,7 +224,7 @@ SetHeader allows for custom http headers
 
 
 
-### <a name="Client.SetNRTxnName">func</a> (\*Client) [SetNRTxnName](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19608:19650#L636)
+### <a name="Client.SetNRTxnName">func</a> (\*Client) [SetNRTxnName](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=22650:22692#L746)
 ``` go
 func (c *Client) SetNRTxnName(name string)
 ```
@@ -224,7 +233,26 @@ SetNRTxnName will set the New Relic transaction name
 
 
 
-### <a name="Client.SetTimeoutMS">func</a> (\*Client) [SetTimeoutMS](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17509:17561#L580)
+### <a name="Client.SetStatsdClientWithTags">func</a> (\*Client) [SetStatsdClientWithTags](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=22376:22457#L740)
+``` go
+func (c *Client) SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string)
+```
+SetStatsdClientWithTags will set the request's statsd client and all associated tags.
+Note that cbapiclient add its own tag in the form of
+
+
+	cbapiclient:{VERB}-{HOST}-{PATH}
+
+It will also add the following tags for responses from http requests:
+
+
+	status_code:{STATUS_CODE}
+	duration:{DURATION}
+
+
+
+
+### <a name="Client.SetTimeoutMS">func</a> (\*Client) [SetTimeoutMS](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20023:20075#L679)
 ``` go
 func (c *Client) SetTimeoutMS(timeout time.Duration)
 ```
@@ -234,7 +262,7 @@ a request to complete.  The default request timeout is 8 seconds (8000 ms)
 
 
 
-### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17743:17784#L590)
+### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20257:20298#L689)
 ``` go
 func (c *Client) StatusCodeIsError() bool
 ```
@@ -244,7 +272,7 @@ considered an error
 
 
 
-### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18117:18165#L599)
+### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=20631:20679#L698)
 ``` go
 func (c *Client) WillSaturate(proto interface{})
 ```
@@ -257,7 +285,7 @@ returned in the response instead
 
 
 
-### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18588:18643#L609)
+### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21102:21157#L708)
 ``` go
 func (c *Client) WillSaturateOnError(proto interface{})
 ```
@@ -271,7 +299,7 @@ as any response with a status code not in the 2XX range.
 
 
 
-### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=19164:19242#L621)
+### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=21678:21756#L720)
 ``` go
 func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{})
 ```
@@ -287,7 +315,7 @@ unless specified here.
 
 
 
-## <a name="Defaults">type</a> [Defaults](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=1500:3157#L48)
+## <a name="Defaults">type</a> [Defaults](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=1819:3541#L57)
 ``` go
 type Defaults struct {
     // ServiceName is the name of the calling service
@@ -331,6 +359,9 @@ type Defaults struct {
     // 		Request-Source
     // 		Calling-Service
     StrictREQ014 bool
+
+    // StatsdRate is the statsd reporting rate
+    StatsdRate float64
 }
 ```
 Defaults is a container for setting package level values
@@ -344,7 +375,7 @@ Defaults is a container for setting package level values
 
 
 
-## <a name="IClient">type</a> [IClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3159:3927#L92)
+## <a name="IClient">type</a> [IClient](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=3543:4377#L104)
 ``` go
 type IClient interface {
     Delete(ctx context.Context) (int, error)
@@ -357,6 +388,7 @@ type IClient interface {
     Patch(ctx context.Context, payload interface{}) (int, error)
     RawResponse() []byte
     SetCircuitBreaker(cb CircuitBreakerPrototype)
+    SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string)
     SetContentType(ct string)
     SetHeader(key string, value string)
     SetNRTxnName(name string)
@@ -367,6 +399,24 @@ type IClient interface {
     WillSaturateWithStatusCode(statusCode int, proto interface{})
 }
 ```
+
+
+
+
+
+
+
+
+
+## <a name="StatsdClientPrototype">type</a> [StatsdClientPrototype](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=1586:1757#L51)
+``` go
+type StatsdClientPrototype interface {
+    Incr(name string, tags []string, rate float64) error
+    Timing(name string, value time.Duration, tags []string, rate float64) error
+}
+```
+StatsdClientPrototype defines the statsd client functions used in this library
+
 
 
 
