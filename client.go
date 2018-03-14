@@ -309,13 +309,13 @@ func ensurePackageVariables() {
 
 		// ensure statsd success and failure tags exist
 		if pkgStatsdSuccessTag == "" {
-			logrus.WithField("type", NAME).Warn("no statsd success tag provided.  using status:success.")
-			pkgStatsdSuccessTag = "status:success"
+			logrus.WithField("type", NAME).Info("no statsd success tag provided.  using processed:success.")
+			pkgStatsdSuccessTag = "processed:success"
 		}
 
 		if pkgStatsdFailureTag == "" {
-			logrus.WithField("type", NAME).Warn("no statsd failure tag provided.  using status:failure.")
-			pkgStatsdFailureTag = "status:failure"
+			logrus.WithField("type", NAME).Info("no statsd failure tag provided.  using processed:failure.")
+			pkgStatsdFailureTag = "processed:failure"
 		}
 	})
 }
