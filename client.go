@@ -154,7 +154,7 @@ type Client struct {
 	// Stack depth for new relic segment.  This tracks
 	// the number of levels the client is in relation
 	// to the caller
-	nrStackDepth int
+	callDepth int
 
 	// if the http response code is < 200 or > 299, this flag
 	// gets set true
@@ -183,6 +183,9 @@ type Client struct {
 
 	// flag to set this object in an error state
 	internalError bool
+
+	// name of caller
+	caller string
 }
 
 // req014HeaderCheck will check for the presence of required outgoing
@@ -357,6 +360,18 @@ func NewClient(uri string) (*Client, error) {
 	return c, nil
 }
 
+// get the caller
+func getCaller(depth int) string {
+	depth++
+	pc, _, _, ok := runtime.Caller(depth)
+	if ok {
+		funcPath := strings.Split(runtime.FuncForPC(pc).Name(), "/")
+		return strings.Split(funcPath[len(funcPath)-1], ".")[1]
+	}
+
+	return "unknown"
+}
+
 //
 // Client Functions
 // ========================================================
@@ -386,11 +401,8 @@ func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
 		return newrelic.StartSegment(txn, c.nrTxnName)
 	}
 
-	c.nrStackDepth++
-	pc, _, _, _ := runtime.Caller(c.nrStackDepth)
-	funcPath := strings.Split(runtime.FuncForPC(pc).Name(), "/")
-
-	return newrelic.StartSegment(txn, strings.Split(funcPath[len(funcPath)-1], ".")[1]+c.endpoint.RawPath)
+	c.callDepth++
+	return newrelic.StartSegment(txn, fmt.Sprintf("%s:%s", getCaller(c.callDepth), c.endpoint.RawPath))
 }
 
 // reports the status code from the response
@@ -631,7 +643,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 // Do will prepare the request and either run it directly
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
-	c.nrStackDepth++
+	c.callDepth++
 
 	if c.endpoint == nil {
 		err := errors.New("cbapiclient: endpoint for request not set")
@@ -651,7 +663,7 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 	}
 
 	sc, err := c.cb.Execute(func() (interface{}, error) {
-		c.nrStackDepth++
+		c.callDepth++
 		return c.doInternal(ctx, payload)
 	})
 
@@ -739,7 +751,9 @@ func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) {
 //		duration:{DURATION}
 func (c *Client) SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string) {
 	c.statsdClient = sd
-	c.statsdTags = append(tags, fmt.Sprintf("cbapiclient:%s-%s-%s", c.method, c.endpoint.Host, c.endpoint.Path))
+	callerTag := fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(1), c.method, c.endpoint.Host)
+	c.statsdTags = append(tags, callerTag)
+	logrus.WithField("type", "cbapiclient").Info(callerTag)
 }
 
 // SetNRTxnName will set the New Relic transaction name
@@ -785,14 +799,14 @@ func (c *Client) Duration() time.Duration {
 
 // Get performs an HTTP GET request
 func (c *Client) Get(ctx context.Context) (int, error) {
-	c.nrStackDepth++
+	c.callDepth++
 
 	return c.Do(ctx, http.MethodGet, nil)
 }
 
 // Post performs an HTTP POST request with the specified payload
 func (c *Client) Post(ctx context.Context, payload interface{}) (int, error) {
-	c.nrStackDepth++
+	c.callDepth++
 	c.method = http.MethodPost
 
 	return c.Do(ctx, http.MethodPost, payload)
@@ -800,7 +814,7 @@ func (c *Client) Post(ctx context.Context, payload interface{}) (int, error) {
 
 // Put performs an HTTP PUT request with the specified payload
 func (c *Client) Put(ctx context.Context, payload interface{}) (int, error) {
-	c.nrStackDepth++
+	c.callDepth++
 	c.method = http.MethodPut
 
 	return c.Do(ctx, http.MethodPut, payload)
@@ -808,7 +822,7 @@ func (c *Client) Put(ctx context.Context, payload interface{}) (int, error) {
 
 // Patch performs an HTTP PATCH request with the specified payload
 func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error) {
-	c.nrStackDepth++
+	c.callDepth++
 	c.method = http.MethodPatch
 
 	return c.Do(ctx, http.MethodPatch, payload)
@@ -816,7 +830,7 @@ func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error) {
 
 // Delete performs an HTTP DELETE request
 func (c *Client) Delete(ctx context.Context) (int, error) {
-	c.nrStackDepth++
+	c.callDepth++
 	c.method = http.MethodDelete
 
 	return c.Do(ctx, http.MethodDelete, nil)
