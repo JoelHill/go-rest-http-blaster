@@ -119,11 +119,12 @@ type FakeIClient struct {
 	setCircuitBreakerArgsForCall []struct {
 		cb cbapiclient.CircuitBreakerPrototype
 	}
-	SetStatsdClientWithTagsStub        func(sd cbapiclient.StatsdClientPrototype, tags []string)
-	setStatsdClientWithTagsMutex       sync.RWMutex
-	setStatsdClientWithTagsArgsForCall []struct {
-		sd   cbapiclient.StatsdClientPrototype
-		tags []string
+	SetStatsdDelegateStub        func(sdClient cbapiclient.StatsdClientPrototype, stat string, tags []string)
+	setStatsdDelegateMutex       sync.RWMutex
+	setStatsdDelegateArgsForCall []struct {
+		sdClient cbapiclient.StatsdClientPrototype
+		stat     string
+		tags     []string
 	}
 	SetContentTypeStub        func(ct string)
 	setContentTypeMutex       sync.RWMutex
@@ -606,34 +607,35 @@ func (fake *FakeIClient) SetCircuitBreakerArgsForCall(i int) cbapiclient.Circuit
 	return fake.setCircuitBreakerArgsForCall[i].cb
 }
 
-func (fake *FakeIClient) SetStatsdClientWithTags(sd cbapiclient.StatsdClientPrototype, tags []string) {
+func (fake *FakeIClient) SetStatsdDelegate(sdClient cbapiclient.StatsdClientPrototype, stat string, tags []string) {
 	var tagsCopy []string
 	if tags != nil {
 		tagsCopy = make([]string, len(tags))
 		copy(tagsCopy, tags)
 	}
-	fake.setStatsdClientWithTagsMutex.Lock()
-	fake.setStatsdClientWithTagsArgsForCall = append(fake.setStatsdClientWithTagsArgsForCall, struct {
-		sd   cbapiclient.StatsdClientPrototype
-		tags []string
-	}{sd, tagsCopy})
-	fake.recordInvocation("SetStatsdClientWithTags", []interface{}{sd, tagsCopy})
-	fake.setStatsdClientWithTagsMutex.Unlock()
-	if fake.SetStatsdClientWithTagsStub != nil {
-		fake.SetStatsdClientWithTagsStub(sd, tags)
+	fake.setStatsdDelegateMutex.Lock()
+	fake.setStatsdDelegateArgsForCall = append(fake.setStatsdDelegateArgsForCall, struct {
+		sdClient cbapiclient.StatsdClientPrototype
+		stat     string
+		tags     []string
+	}{sdClient, stat, tagsCopy})
+	fake.recordInvocation("SetStatsdDelegate", []interface{}{sdClient, stat, tagsCopy})
+	fake.setStatsdDelegateMutex.Unlock()
+	if fake.SetStatsdDelegateStub != nil {
+		fake.SetStatsdDelegateStub(sdClient, stat, tags)
 	}
 }
 
-func (fake *FakeIClient) SetStatsdClientWithTagsCallCount() int {
-	fake.setStatsdClientWithTagsMutex.RLock()
-	defer fake.setStatsdClientWithTagsMutex.RUnlock()
-	return len(fake.setStatsdClientWithTagsArgsForCall)
+func (fake *FakeIClient) SetStatsdDelegateCallCount() int {
+	fake.setStatsdDelegateMutex.RLock()
+	defer fake.setStatsdDelegateMutex.RUnlock()
+	return len(fake.setStatsdDelegateArgsForCall)
 }
 
-func (fake *FakeIClient) SetStatsdClientWithTagsArgsForCall(i int) (cbapiclient.StatsdClientPrototype, []string) {
-	fake.setStatsdClientWithTagsMutex.RLock()
-	defer fake.setStatsdClientWithTagsMutex.RUnlock()
-	return fake.setStatsdClientWithTagsArgsForCall[i].sd, fake.setStatsdClientWithTagsArgsForCall[i].tags
+func (fake *FakeIClient) SetStatsdDelegateArgsForCall(i int) (cbapiclient.StatsdClientPrototype, string, []string) {
+	fake.setStatsdDelegateMutex.RLock()
+	defer fake.setStatsdDelegateMutex.RUnlock()
+	return fake.setStatsdDelegateArgsForCall[i].sdClient, fake.setStatsdDelegateArgsForCall[i].stat, fake.setStatsdDelegateArgsForCall[i].tags
 }
 
 func (fake *FakeIClient) SetContentType(ct string) {
@@ -869,8 +871,8 @@ func (fake *FakeIClient) Invocations() map[string][][]interface{} {
 	defer fake.rawResponseMutex.RUnlock()
 	fake.setCircuitBreakerMutex.RLock()
 	defer fake.setCircuitBreakerMutex.RUnlock()
-	fake.setStatsdClientWithTagsMutex.RLock()
-	defer fake.setStatsdClientWithTagsMutex.RUnlock()
+	fake.setStatsdDelegateMutex.RLock()
+	defer fake.setStatsdDelegateMutex.RUnlock()
 	fake.setContentTypeMutex.RLock()
 	defer fake.setContentTypeMutex.RUnlock()
 	fake.setHeaderMutex.RLock()

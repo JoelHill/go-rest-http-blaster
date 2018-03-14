@@ -100,6 +100,12 @@ type Defaults struct {
 
 	// StatsdRate is the statsd reporting rate
 	StatsdRate float64
+
+	// StatsdSuccessTag is the tag added to the statsd metric when the request succeeds (200 <= status_code < 300)
+	StatsdSuccessTag string
+
+	// StatsdFailureTag is the tag added to the statsd metric when the request fails
+	StatsdFailureTag string
 }
 
 type IClient interface {
@@ -113,7 +119,7 @@ type IClient interface {
 	Patch(ctx context.Context, payload interface{}) (int, error)
 	RawResponse() []byte
 	SetCircuitBreaker(cb CircuitBreakerPrototype)
-	SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string)
+	SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, tags []string)
 	SetContentType(ct string)
 	SetHeader(key string, value string)
 	SetNRTxnName(name string)
@@ -179,6 +185,9 @@ type Client struct {
 	// internal statsd client
 	statsdClient StatsdClientPrototype
 
+	// statsd stat to record
+	statsdStat string
+
 	// statsd tags
 	statsdTags []string
 
@@ -215,6 +224,8 @@ var (
 	pkgDontUseNewRelic           bool
 	pkgStrictREQ014              bool
 	pkgStatsdRate                float64
+	pkgStatsdSuccessTag          string
+	pkgStatsdFailureTag          string
 	pkgCallerRegex               *regexp.Regexp
 
 	envHttpMocking = "MOCKING_HTTP"
@@ -294,6 +305,17 @@ func ensurePackageVariables() {
 			pkgRequestSourceProviderFunc = func(ctx context.Context) (string, bool) {
 				return "", false
 			}
+		}
+
+		// ensure statsd success and failure tags exist
+		if pkgStatsdSuccessTag == "" {
+			logrus.WithField("type", NAME).Info("no statsd success tag provided.  using processed:success.")
+			pkgStatsdSuccessTag = "processed:success"
+		}
+
+		if pkgStatsdFailureTag == "" {
+			logrus.WithField("type", NAME).Info("no statsd failure tag provided.  using processed:failure.")
+			pkgStatsdFailureTag = "processed:failure"
 		}
 	})
 }
@@ -417,16 +439,25 @@ func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
 func (c *Client) statsdReportResponse(statusCode int) {
 	if c.statsdClient != nil {
 		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", statusCode))
-		tags = append(tags, fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth+1), c.method, c.endpoint.Host))
-		c.statsdClient.Incr(NAME, tags, pkgStatsdRate)
+		if c.responseIsError {
+			tags = append(tags, pkgStatsdFailureTag)
+		} else {
+			tags = append(tags, pkgStatsdSuccessTag)
+		}
+		c.statsdClient.Incr(c.statsdStat, tags, pkgStatsdRate)
 	}
 }
 
 // reports the duration of the request
 func (c *Client) statsdReportDuration() {
 	if c.statsdClient != nil {
-		tags := append(c.statsdTags, fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth+1), c.method, c.endpoint.Host))
-		c.statsdClient.Timing(NAME, c.duration, tags, pkgStatsdRate)
+		var tags []string
+		if c.responseIsError {
+			tags = append(c.statsdTags, pkgStatsdFailureTag)
+		} else {
+			tags = append(c.statsdTags, pkgStatsdSuccessTag)
+		}
+		c.statsdClient.Timing(c.statsdStat, c.duration, tags, pkgStatsdRate)
 	}
 }
 
@@ -604,22 +635,21 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		c.rawresponse = body
 	}
 
+	// check if this is an error
+	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
+		c.responseIsError = true
+	}
+
 	// if the response has a body, handle it
 	if len(body) > 0 {
 
 		// the thing we are about to potentially unmarshal into
 		var unmarshalTo interface{}
 
-		// check if this is an error
-		notSuccess := statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices
-		if notSuccess {
-			c.responseIsError = true
-		}
-
 		// if there is a custom response for this specific status code
 		if c.customPrototypes[statusCode] != nil {
 			unmarshalTo = c.customPrototypes[statusCode]
-		} else if notSuccess {
+		} else if c.responseIsError {
 			// request returned error code
 			unmarshalTo = c.errorPrototype
 		} else {
@@ -643,8 +673,9 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}
 
 	c.statsdReportResponse(statusCode)
+
 	if canLog {
-		logger.WithField("type", "cbapiclient").
+		logger.WithField("type", NAME).
 			Debugf("%s request to %s returned code %d", c.method, c.endpoint.Host, statusCode)
 	}
 
@@ -754,15 +785,16 @@ func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) {
 	c.cb = cb
 }
 
-// SetStatsdClientWithTags will set the request's statsd client and all associated tags.
-// Note that cbapiclient add its own tag in the form of
-// 		cbapiclient:{VERB}-{HOST}-{PATH}
-// It will also add the following tags for responses from http requests:
-//		status_code:{STATUS_CODE}
-//		duration:{DURATION}
-func (c *Client) SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string) {
-	c.statsdClient = sd
+// SetStatsdDelegate will set the statsd client, the stat, and tags
+func (c *Client) SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, tags []string) {
+	c.statsdClient = sdClient
 	c.statsdTags = tags
+
+	if stat == "" {
+		stat = "default"
+	}
+
+	c.statsdStat = fmt.Sprintf("%s.%s", NAME, stat)
 }
 
 // SetNRTxnName will set the New Relic transaction name
