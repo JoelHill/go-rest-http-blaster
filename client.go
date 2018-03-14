@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -214,9 +215,14 @@ var (
 	pkgDontUseNewRelic           bool
 	pkgStrictREQ014              bool
 	pkgStatsdRate                float64
+	pkgCallerRegex               *regexp.Regexp
 
 	envHttpMocking = "MOCKING_HTTP"
 )
+
+func init() {
+	pkgCallerRegex = regexp.MustCompile(`(\(|\)|\*)`)
+}
 
 //
 // Package Level Functions
@@ -366,7 +372,10 @@ func getCaller(depth int) string {
 	pc, _, _, ok := runtime.Caller(depth)
 	if ok {
 		funcPath := strings.Split(runtime.FuncForPC(pc).Name(), "/")
-		return strings.Split(funcPath[len(funcPath)-1], ".")[1]
+		if len(funcPath) > 0 {
+			caller := funcPath[len(funcPath)-1]
+			return pkgCallerRegex.ReplaceAllString(caller, "")
+		}
 	}
 
 	return "unknown"
@@ -393,6 +402,7 @@ func (c *Client) applyContextDependentHeaders(ctx context.Context) {
 // segment for the request.  It will reuse a New Relic transaction
 // provided in SetDefaults.  Otherwise it will start a new transaction.
 func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
+	c.callDepth++
 
 	// get new relic transaction from context
 	txn, _ := pkgNRTxnProviderFunc(ctx)
@@ -400,18 +410,14 @@ func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
 	if c.nrTxnName != "" {
 		return newrelic.StartSegment(txn, c.nrTxnName)
 	}
-
-	c.callDepth++
 	return newrelic.StartSegment(txn, fmt.Sprintf("%s:%s", getCaller(c.callDepth), c.endpoint.RawPath))
 }
 
 // reports the status code from the response
 func (c *Client) statsdReportResponse(statusCode int) {
-	callerTag := fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth), c.method, c.endpoint.Host)
-	logrus.WithField("type", "cbapiclient").Info(callerTag)
 	if c.statsdClient != nil {
 		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", statusCode))
-		tags = append(tags, fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth), c.method, c.endpoint.Host))
+		tags = append(tags, fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth+1), c.method, c.endpoint.Host))
 		c.statsdClient.Incr(NAME, tags, pkgStatsdRate)
 	}
 }
@@ -419,7 +425,7 @@ func (c *Client) statsdReportResponse(statusCode int) {
 // reports the duration of the request
 func (c *Client) statsdReportDuration() {
 	if c.statsdClient != nil {
-		tags := append(c.statsdTags, fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth), c.method, c.endpoint.Host))
+		tags := append(c.statsdTags, fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth+1), c.method, c.endpoint.Host))
 		c.statsdClient.Timing(NAME, c.duration, tags, pkgStatsdRate)
 	}
 }
@@ -428,7 +434,7 @@ func (c *Client) statsdReportDuration() {
 // is either called from within a circuit breaker, or directly
 // from Do.
 func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, error) {
-
+	c.callDepth++
 	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
 
 	// start the new relic capture
@@ -448,6 +454,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	// start the clock
 	defer func(c *Client, begin time.Time) {
 		if !c.internalError {
+			c.callDepth++
 			c.duration = time.Now().Sub(begin)
 			c.statsdReportDuration()
 		}
