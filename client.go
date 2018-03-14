@@ -119,7 +119,7 @@ type IClient interface {
 	Patch(ctx context.Context, payload interface{}) (int, error)
 	RawResponse() []byte
 	SetCircuitBreaker(cb CircuitBreakerPrototype)
-	SetStatsdDelegate(sd StatsdClientPrototype, stat string, tags []string)
+	SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, tags []string)
 	SetContentType(ct string)
 	SetHeader(key string, value string)
 	SetNRTxnName(name string)
@@ -786,14 +786,15 @@ func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) {
 }
 
 // SetStatsdDelegate will set the statsd client, the stat, and tags
-func (c *Client) SetStatsdDelegate(sd StatsdClientPrototype, stat string, tags []string) {
-	c.statsdClient = sd
-	c.statsdStat = stat
+func (c *Client) SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, tags []string) {
+	c.statsdClient = sdClient
 	c.statsdTags = tags
 
 	if stat == "" {
-		c.statsdStat = NAME
+		stat = "default"
 	}
+
+	c.statsdStat = fmt.Sprintf("%s.%s", NAME, stat)
 }
 
 // SetNRTxnName will set the New Relic transaction name
