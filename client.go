@@ -407,8 +407,11 @@ func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
 
 // reports the status code from the response
 func (c *Client) statsdReportResponse(statusCode int) {
+	callerTag := fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth), c.method, c.endpoint.Host)
+	logrus.WithField("type", "cbapiclient").Info(callerTag)
 	if c.statsdClient != nil {
 		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", statusCode))
+		tags = append(tags, fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth), c.method, c.endpoint.Host))
 		c.statsdClient.Incr(NAME, tags, pkgStatsdRate)
 	}
 }
@@ -416,7 +419,8 @@ func (c *Client) statsdReportResponse(statusCode int) {
 // reports the duration of the request
 func (c *Client) statsdReportDuration() {
 	if c.statsdClient != nil {
-		c.statsdClient.Timing(NAME, c.duration, c.statsdTags, pkgStatsdRate)
+		tags := append(c.statsdTags, fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(c.callDepth), c.method, c.endpoint.Host))
+		c.statsdClient.Timing(NAME, c.duration, tags, pkgStatsdRate)
 	}
 }
 
@@ -751,9 +755,7 @@ func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) {
 //		duration:{DURATION}
 func (c *Client) SetStatsdClientWithTags(sd StatsdClientPrototype, tags []string) {
 	c.statsdClient = sd
-	callerTag := fmt.Sprintf("cbapiclient:%s-%s-%s-%s", pkgServiceName, getCaller(1), c.method, c.endpoint.Host)
-	c.statsdTags = append(tags, callerTag)
-	logrus.WithField("type", "cbapiclient").Info(callerTag)
+	c.statsdTags = tags
 }
 
 // SetNRTxnName will set the New Relic transaction name
