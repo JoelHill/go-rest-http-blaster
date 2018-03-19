@@ -108,6 +108,7 @@ type Defaults struct {
 	StatsdFailureTag string
 }
 
+// IClient - interface for the cb api client
 type IClient interface {
 	Delete(ctx context.Context) (int, error)
 	Duration() time.Duration
@@ -216,6 +217,7 @@ func (c req014HeaderCheck) ok() bool {
 var (
 	pkgServiceName               string
 	pkgUserAgent                 string
+	pkgNRExternalSegment         newrelic.ExternalSegment
 	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
 	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
 	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
@@ -228,7 +230,7 @@ var (
 	pkgStatsdFailureTag          string
 	pkgCallerRegex               *regexp.Regexp
 
-	envHttpMocking = "MOCKING_HTTP"
+	envHTTPMocking = "MOCKING_HTTP"
 )
 
 func init() {
@@ -335,12 +337,12 @@ func SetDefaults(defaults *Defaults) {
 }
 
 // this creates a http client with sensible defaults
-func newHttpClient() *http.Client {
+func newHTTPClient() *http.Client {
 	// all http mocking libraries can override the default http client,
 	// but many cannot override clients that have been tuned with custom
 	// transports.  If this env var is set, we return the standard
 	// http client.
-	if os.Getenv(envHttpMocking) != "" {
+	if os.Getenv(envHTTPMocking) != "" {
 		return http.DefaultClient
 	}
 
@@ -376,7 +378,7 @@ func NewClient(uri string) (*Client, error) {
 	c := &Client{
 		endpoint: ep,
 		method:   http.MethodGet,
-		client:   newHttpClient(),
+		client:   newHTTPClient(),
 		headers: map[string]string{
 			userAgentHeader:      pkgUserAgent,
 			contentTypeHeader:    jsonType,
@@ -420,21 +422,6 @@ func (c *Client) applyContextDependentHeaders(ctx context.Context) {
 	}
 }
 
-// startNewRelicSegment will create a new New Relic measurement
-// segment for the request.  It will reuse a New Relic transaction
-// provided in SetDefaults.  Otherwise it will start a new transaction.
-func (c *Client) startNewRelicSegment(ctx context.Context) newrelic.Segment {
-	c.callDepth++
-
-	// get new relic transaction from context
-	txn, _ := pkgNRTxnProviderFunc(ctx)
-
-	if c.nrTxnName != "" {
-		return newrelic.StartSegment(txn, c.nrTxnName)
-	}
-	return newrelic.StartSegment(txn, fmt.Sprintf("%s:%s", getCaller(c.callDepth), c.endpoint.RawPath))
-}
-
 // reports the status code from the response
 func (c *Client) statsdReportResponse(statusCode int) {
 	if c.statsdClient != nil {
@@ -468,10 +455,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	c.callDepth++
 	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
 
-	// start the new relic capture
+	// new relic capture of the function timing
 	if !pkgDontUseNewRelic {
-		segment := c.startNewRelicSegment(ctx)
-		defer segment.End()
+		nrtx, _ := pkgNRTxnProviderFunc(ctx)
+		defer newrelic.StartSegment(nrtx, "doInternal()").End()
 	}
 
 	var (
@@ -514,15 +501,15 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			case string:
 				payloadBytes = []byte(payload.(string))
 			default:
-				err := errors.New("the payload cannot be converted to a byte slice")
+				errBS := errors.New("the payload cannot be converted to a byte slice")
 				if canLog {
 					logger.WithFields(logrus.Fields{
-						"error_message": err.Error(),
+						"error_message": errBS.Error(),
 						"type":          NAME,
 					}).Error("request failed")
 				}
 				c.internalError = true
-				return http.StatusInternalServerError, err
+				return http.StatusInternalServerError, errBS
 			}
 		}
 
@@ -561,15 +548,24 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 
 	// if we are strictly enforcing request tracing
 	if pkgStrictREQ014 && !check.ok() {
-		err := errors.New("request tracing header requirements check failed")
+		errREQ14 := errors.New("request tracing header requirements check failed")
 		if canLog {
 			logger.WithFields(logrus.Fields{
-				"error_message": err.Error(),
+				"error_message": errREQ14.Error(),
 				"type":          NAME,
 			}).Error("request failed")
 		}
 		c.internalError = true
-		return http.StatusInternalServerError, err
+		return http.StatusInternalServerError, errREQ14
+	}
+
+	if !pkgDontUseNewRelic {
+		// StartExternalSegment will create a new New Relic external segment
+		// measurement for the request.  It will reuse a New Relic transaction
+		// provided in SetDefaults.  Otherwise it will start a new transaction.
+		// get new relic transaction from context
+		nrtx, _ := pkgNRTxnProviderFunc(ctx)
+		pkgNRExternalSegment = newrelic.StartExternalSegment(nrtx, request)
 	}
 
 	response, responseErr := c.client.Do(request)
@@ -583,6 +579,12 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			}).Error("close request body failed")
 		}
 	}
+
+	// end the external segment timing
+	if !pkgDontUseNewRelic {
+		pkgNRExternalSegment.End()
+	}
+
 	// request error
 	if responseErr != nil {
 		if canLog {
@@ -686,6 +688,12 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
 	c.callDepth++
+
+	// new relic capture of the function timing
+	if !pkgDontUseNewRelic {
+		nrtx, _ := pkgNRTxnProviderFunc(ctx)
+		defer newrelic.StartSegment(nrtx, "Do()").End()
+	}
 
 	if c.endpoint == nil {
 		err := errors.New("cbapiclient: endpoint for request not set")
