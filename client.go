@@ -12,8 +12,6 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -58,12 +56,6 @@ type StatsdClientPrototype interface {
 type Defaults struct {
 	// ServiceName is the name of the calling service
 	ServiceName string
-
-	// DontUseNewRelic will disable the New Relic transaction
-	// segment if it's not available or wanted.  This is useful
-	// for testing purposes and/or prototyping.  We should be
-	// using New Relic transaction wrappers if they are available.
-	DontUseNewRelic bool
 
 	// NewRelicTransactionProviderFunc is a function that
 	// provides the New Relic transaction to be used in the
@@ -217,13 +209,11 @@ func (c req014HeaderCheck) ok() bool {
 var (
 	pkgServiceName               string
 	pkgUserAgent                 string
-	pkgNRExternalSegment         newrelic.ExternalSegment
 	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
 	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
 	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
 	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
 	pkgOnce                      sync.Once
-	pkgDontUseNewRelic           bool
 	pkgStrictREQ014              bool
 	pkgStatsdRate                float64
 	pkgStatsdSuccessTag          string
@@ -267,15 +257,13 @@ func ensurePackageVariables() {
 			}
 		}
 
-		if !pkgDontUseNewRelic {
-			// make sure new relic transaction provider exists
-			if pkgNRTxnProviderFunc == nil {
-				logrus.WithField("type", NAME).
-					Warn("no NewRelicTransactionProviderFunc default set")
-				pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
-					// the newrelic StartSegment function will start a new transaction
-					return nil, false
-				}
+		// make sure new relic transaction provider exists
+		if pkgNRTxnProviderFunc == nil {
+			logrus.WithField("type", NAME).
+				Warn("no NewRelicTransactionProviderFunc set")
+			pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
+				// the newrelic StartSegment function will start a new transaction
+				return nil, false
 			}
 		}
 
@@ -329,7 +317,6 @@ func SetDefaults(defaults *Defaults) {
 	pkgNRTxnProviderFunc = defaults.NewRelicTransactionProviderFunc
 	pkgCtxLoggerProviderFunc = defaults.ContextLoggerProviderFunc
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
-	pkgDontUseNewRelic = defaults.DontUseNewRelic
 	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc
 	pkgUserAgent = defaults.UserAgent
 	pkgStrictREQ014 = defaults.StrictREQ014
@@ -390,21 +377,6 @@ func NewClient(uri string) (*Client, error) {
 	return c, nil
 }
 
-// get the caller
-func getCaller(depth int) string {
-	depth++
-	pc, _, _, ok := runtime.Caller(depth)
-	if ok {
-		funcPath := strings.Split(runtime.FuncForPC(pc).Name(), "/")
-		if len(funcPath) > 0 {
-			caller := funcPath[len(funcPath)-1]
-			return pkgCallerRegex.ReplaceAllString(caller, "")
-		}
-	}
-
-	return "unknown"
-}
-
 //
 // Client Functions
 // ========================================================
@@ -455,9 +427,12 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	c.callDepth++
 	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
 
+	var nrExternalSegment newrelic.ExternalSegment
+
+	nrtx, nrtxOK := pkgNRTxnProviderFunc(ctx)
+
 	// new relic capture of the function timing
-	if !pkgDontUseNewRelic {
-		nrtx, _ := pkgNRTxnProviderFunc(ctx)
+	if nrtxOK {
 		defer newrelic.StartSegment(nrtx, "doInternal()").End()
 	}
 
@@ -559,13 +534,12 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		return http.StatusInternalServerError, errREQ14
 	}
 
-	if !pkgDontUseNewRelic {
+	if nrtxOK {
 		// StartExternalSegment will create a new New Relic external segment
 		// measurement for the request.  It will reuse a New Relic transaction
 		// provided in SetDefaults.  Otherwise it will start a new transaction.
 		// get new relic transaction from context
-		nrtx, _ := pkgNRTxnProviderFunc(ctx)
-		pkgNRExternalSegment = newrelic.StartExternalSegment(nrtx, request)
+		nrExternalSegment = newrelic.StartExternalSegment(nrtx, request)
 	}
 
 	response, responseErr := c.client.Do(request)
@@ -581,8 +555,8 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}
 
 	// end the external segment timing
-	if !pkgDontUseNewRelic {
-		pkgNRExternalSegment.End()
+	if nrtxOK && nrExternalSegment.Request != nil {
+		nrExternalSegment.End()
 	}
 
 	// request error
@@ -689,9 +663,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
 	c.callDepth++
 
+	nrtx, nrtxOK := pkgNRTxnProviderFunc(ctx)
+
 	// new relic capture of the function timing
-	if !pkgDontUseNewRelic {
-		nrtx, _ := pkgNRTxnProviderFunc(ctx)
+	if nrtxOK {
 		defer newrelic.StartSegment(nrtx, "Do()").End()
 	}
 
