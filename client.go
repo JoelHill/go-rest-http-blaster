@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 
@@ -19,8 +18,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
-//go:generate counterfeiter -o ./fakes/fake_iclient.go . IClient
+// go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
+// go:generate counterfeiter -o ./fakes/fake_statsd_client_prototype.go . StatsdClientPrototype
+// go:generate counterfeiter -o ./fakes/fake_iclient.go . IClient
 
 const (
 	requestIDHeader      = "Request-ID"
@@ -31,11 +31,13 @@ const (
 	userAgentHeader      = "User-Agent"
 	contentLengthHeader  = "Content-Length"
 	acceptHeader         = "Accept"
-	requestTimeout       = 8 * time.Second  // the max amount of time for the entire request before failing
-	sockTimeout          = 2 * time.Second  // the max amount of time attempting to make the tcp connection
-	tlsTimeout           = 2 * time.Second  // the max amount of time establishing TLS handshake
-	idleTimeout          = 10 * time.Second // the amount of time to keep idle connections available before closing them
-	maxIdleConnsPerHost  = 100              // the maximum number of idle connections to keep around for reuse
+	requestTimeout       = 8 * time.Second        // the max amount of time for the entire request before failing
+	sockTimeout          = 2 * time.Second        // the max amount of time attempting to make the tcp connection
+	tlsTimeout           = 2 * time.Second        // the max amount of time establishing TLS handshake
+	idleTimeout          = 10 * time.Second       // the amount of time to keep idle connections available before closing them
+	keepAlive            = 750 * time.Millisecond // the keep-alive period for an active network connection
+	maxIdleConnsPerHost  = 100                    // the maximum number of idle connections to keep around per host
+	maxIdleConns         = 100                    // the maximum number of idle connections to keep around for ALL hosts
 )
 
 // NAME is the name of this library
@@ -151,11 +153,6 @@ type Client struct {
 	// Internal circuit breaker
 	cb CircuitBreakerPrototype
 
-	// Stack depth for new relic segment.  This tracks
-	// the number of levels the client is in relation
-	// to the caller
-	callDepth int
-
 	// if the http response code is < 200 or > 299, this flag
 	// gets set true
 	responseIsError bool
@@ -185,10 +182,9 @@ type Client struct {
 	statsdTags []string
 
 	// flag to set this object in an error state
+	// this will prevent statsd calls if an error
+	// originated within this API
 	internalError bool
-
-	// name of caller
-	caller string
 }
 
 // req014HeaderCheck will check for the presence of required outgoing
@@ -218,14 +214,9 @@ var (
 	pkgStatsdRate                float64
 	pkgStatsdSuccessTag          string
 	pkgStatsdFailureTag          string
-	pkgCallerRegex               *regexp.Regexp
 
 	envHTTPMocking = "MOCKING_HTTP"
 )
-
-func init() {
-	pkgCallerRegex = regexp.MustCompile(`(\(|\)|\*)`)
-}
 
 //
 // Package Level Functions
@@ -339,10 +330,13 @@ func newHTTPClient() *http.Client {
 			DialContext: (&net.Dialer{
 				Timeout:   sockTimeout,
 				DualStack: true,
+				KeepAlive: keepAlive,
 			}).DialContext,
-			MaxIdleConnsPerHost: maxIdleConnsPerHost,
-			IdleConnTimeout:     idleTimeout,
-			TLSHandshakeTimeout: tlsTimeout,
+			MaxIdleConnsPerHost:   maxIdleConnsPerHost,
+			MaxIdleConns:          maxIdleConns,
+			IdleConnTimeout:       idleTimeout,
+			TLSHandshakeTimeout:   tlsTimeout,
+			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
 	client.Timeout = requestTimeout
@@ -424,11 +418,11 @@ func (c *Client) statsdReportDuration() {
 // is either called from within a circuit breaker, or directly
 // from Do.
 func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, error) {
-	c.callDepth++
+
+	// get logger
 	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
 
-	var nrExternalSegment newrelic.ExternalSegment
-
+	// get new relic transaction provider, if it exists
 	nrtx, nrtxOK := pkgNRTxnProviderFunc(ctx)
 
 	// new relic capture of the function timing
@@ -436,26 +430,28 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		defer newrelic.StartSegment(nrtx, "doInternal()").End()
 	}
 
-	var (
-		err          error
-		payloadBytes []byte
-	)
-
-	// set default headers
+	// set headers that depend on context values
 	c.applyContextDependentHeaders(ctx)
 
-	// start the clock
+	// start the clock and report the duration when this function exits
 	defer func(c *Client, begin time.Time) {
 		if !c.internalError {
-			c.callDepth++
 			c.duration = time.Now().Sub(begin)
 			c.statsdReportDuration()
 		}
 	}(c, time.Now())
 
+	// variables for the next block
+	var (
+		err          error
+		payloadBytes []byte
+	)
+
 	// process the payload if it exists
 	if payload != nil {
-		// if it's a json Request, marshal the payload
+		// if it's a json Request, marshal the payload.
+		// unless changed explicitly, this will be a json
+		// request
 		if c.headers[contentTypeHeader] == jsonType {
 			payloadBytes, err = json.Marshal(payload)
 			if err != nil {
@@ -488,6 +484,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			}
 		}
 
+		// if we have a body length, set the content length header
 		c.headers[contentLengthHeader] = fmt.Sprintf("%d", len(payloadBytes))
 	}
 
@@ -496,6 +493,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 			Debugf("launching %s request to %s", c.method, c.endpoint.Host)
 	}
 
+	// create the internal HTTP request
 	request, err := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
 	if err != nil {
 		if canLog {
@@ -508,6 +506,8 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		return http.StatusInternalServerError, err
 	}
 
+	// add all headers, and also prepare the request
+	// tracing headers to be validated
 	check := req014HeaderCheck{}
 	for k, v := range c.headers {
 		request.Header.Set(k, v)
@@ -534,6 +534,8 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		return http.StatusInternalServerError, errREQ14
 	}
 
+	// create new relic external segment and start it
+	var nrExternalSegment newrelic.ExternalSegment
 	if nrtxOK {
 		// StartExternalSegment will create a new New Relic external segment
 		// measurement for the request.  It will reuse a New Relic transaction
@@ -542,10 +544,14 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		nrExternalSegment = newrelic.StartExternalSegment(nrtx, request)
 	}
 
+	// RUN IT
+	// --------------------------------------------
 	response, responseErr := c.client.Do(request)
+	// --------------------------------------------
+
 	// close request body immediately
 	if reqCloseErr := request.Body.Close(); reqCloseErr != nil {
-		// note this will not cause the request to fail
+		// note this will NOT cause the request to fail
 		if canLog {
 			logger.WithFields(logrus.Fields{
 				"error_message": reqCloseErr.Error(),
@@ -661,8 +667,6 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 // Do will prepare the request and either run it directly
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
-	c.callDepth++
-
 	nrtx, nrtxOK := pkgNRTxnProviderFunc(ctx)
 
 	// new relic capture of the function timing
@@ -671,13 +675,13 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 	}
 
 	if c.endpoint == nil {
-		err := errors.New("cbapiclient: endpoint for request not set")
+		err := errors.New("endpoint for request not set")
 		logger, canLog := pkgCtxLoggerProviderFunc(ctx)
 		if canLog {
 			logger.WithFields(logrus.Fields{
 				"error_message": err.Error(),
 				"type":          NAME,
-			}).Error("cbapiclient config error")
+			}).Error("config error")
 		}
 		c.internalError = true
 		return http.StatusInternalServerError, err
@@ -688,9 +692,22 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 	}
 
 	sc, err := c.cb.Execute(func() (interface{}, error) {
-		c.callDepth++
 		return c.doInternal(ctx, payload)
 	})
+
+	// although doInternal will always return a status code,
+	// the circuit breaker may be open or half open, which
+	// could result in a nil value here
+	if sc == nil {
+		logger, canLog := pkgCtxLoggerProviderFunc(ctx)
+		if canLog {
+			logger.WithFields(logrus.Fields{
+				"error_message": "circuit breaker open or half-open",
+				"type":          NAME,
+			}).Warn("request blocked")
+		}
+		sc = http.StatusFailedDependency
+	}
 
 	return sc.(int), err
 }
@@ -823,14 +840,11 @@ func (c *Client) Duration() time.Duration {
 
 // Get performs an HTTP GET request
 func (c *Client) Get(ctx context.Context) (int, error) {
-	c.callDepth++
-
 	return c.Do(ctx, http.MethodGet, nil)
 }
 
 // Post performs an HTTP POST request with the specified payload
 func (c *Client) Post(ctx context.Context, payload interface{}) (int, error) {
-	c.callDepth++
 	c.method = http.MethodPost
 
 	return c.Do(ctx, http.MethodPost, payload)
@@ -838,7 +852,6 @@ func (c *Client) Post(ctx context.Context, payload interface{}) (int, error) {
 
 // Put performs an HTTP PUT request with the specified payload
 func (c *Client) Put(ctx context.Context, payload interface{}) (int, error) {
-	c.callDepth++
 	c.method = http.MethodPut
 
 	return c.Do(ctx, http.MethodPut, payload)
@@ -846,7 +859,6 @@ func (c *Client) Put(ctx context.Context, payload interface{}) (int, error) {
 
 // Patch performs an HTTP PATCH request with the specified payload
 func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error) {
-	c.callDepth++
 	c.method = http.MethodPatch
 
 	return c.Do(ctx, http.MethodPatch, payload)
@@ -854,7 +866,6 @@ func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error) {
 
 // Delete performs an HTTP DELETE request
 func (c *Client) Delete(ctx context.Context) (int, error) {
-	c.callDepth++
 	c.method = http.MethodDelete
 
 	return c.Do(ctx, http.MethodDelete, nil)
