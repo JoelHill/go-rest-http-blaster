@@ -312,6 +312,8 @@ func SetDefaults(defaults *Defaults) {
 	pkgUserAgent = defaults.UserAgent
 	pkgStrictREQ014 = defaults.StrictREQ014
 	pkgStatsdRate = defaults.StatsdRate
+	pkgStatsdSuccessTag = defaults.StatsdSuccessTag
+	pkgStatsdFailureTag = defaults.StatsdFailureTag
 }
 
 // this creates a http client with sensible defaults
