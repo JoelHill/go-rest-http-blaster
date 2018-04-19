@@ -16,6 +16,8 @@ import (
 
 	"github.com/newrelic/go-agent"
 	"github.com/sirupsen/logrus"
+	"github.com/opentracing/opentracing-go"
+	"github.com/InVisionApp/opentracing-go-helpers"
 )
 
 // go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
@@ -64,6 +66,10 @@ type Defaults struct {
 	// HTTP Request.  If this function is not set, the client
 	// will create a new New Relic transaction
 	NewRelicTransactionProviderFunc func(ctx context.Context) (newrelic.Transaction, bool)
+
+	// TracerProviderFunc is a function that provides
+	// the opentracing.Tracer for tracing HTTP requests
+	TracerProviderFunc func() (opentracing.Tracer)
 
 	// ContextLoggerProviderFunc is a function that provides
 	// a logger from the current context.  If this function
@@ -206,6 +212,7 @@ var (
 	pkgServiceName               string
 	pkgUserAgent                 string
 	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
+	pkgTracerProviderFunc		 func() (opentracing.Tracer)
 	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
 	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
 	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
@@ -421,6 +428,9 @@ func (c *Client) statsdReportDuration() {
 // from Do.
 func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, error) {
 
+	// get tracer
+	tracer := pkgTracerProviderFunc()
+
 	// get logger
 	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
 
@@ -497,6 +507,9 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 
 	// create the internal HTTP request
 	request, err := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
+	request, span := opentracing_go_helpers.TraceRequest(tracer, "foo", ctx, *request)
+	defer span.Finish()
+
 	if err != nil {
 		if canLog {
 			logger.WithFields(logrus.Fields{
