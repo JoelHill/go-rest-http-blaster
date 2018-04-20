@@ -508,7 +508,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	// if tracing is enabled, wrap the request with the tracing provider
 	var span opentracing.Span
 	if pkgTracerProviderFunc != nil {
-		request, span = pkgTracerProviderFunc(ctx, fmt.Sprintf("%s %s", c.method, c.endpoint.Host), request)
+		request, span = pkgTracerProviderFunc(ctx, fmt.Sprintf("%s %s%s", c.method, c.endpoint.Host, c.endpoint.Path), request)
 		defer span.Finish()
 	}
 
