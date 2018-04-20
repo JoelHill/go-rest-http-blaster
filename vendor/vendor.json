@@ -75,6 +75,22 @@
 			"revisionTime": "2013-12-21T20:05:32Z"
 		},
 		{
+			"checksumSHA1": "ELL+JyJIjcZq9Ss+o43mwPmYz98=",
+			"path": "github.com/opentracing/opentracing-go",
+			"revision": "6c572c00d1830223701e155de97408483dfcd14a",
+			"revisionTime": "2018-04-12T18:08:40Z",
+			"version": "master",
+			"versionExact": "master"
+		},
+		{
+			"checksumSHA1": "tnkdNJbJxNKuPZMWapP1xhKIIGw=",
+			"path": "github.com/opentracing/opentracing-go/log",
+			"revision": "6c572c00d1830223701e155de97408483dfcd14a",
+			"revisionTime": "2018-04-12T18:08:40Z",
+			"version": "master",
+			"versionExact": "master"
+		},
+		{
 			"checksumSHA1": "ySaT8G3I3y4MmnoXOYAAX0rC+p8=",
 			"path": "github.com/sirupsen/logrus",
 			"revision": "d682213848ed68c0a260ca37d6dd5ace8423f5ba",

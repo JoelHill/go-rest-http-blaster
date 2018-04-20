@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/newrelic/go-agent"
+	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -64,6 +65,10 @@ type Defaults struct {
 	// HTTP Request.  If this function is not set, the client
 	// will create a new New Relic transaction
 	NewRelicTransactionProviderFunc func(ctx context.Context) (newrelic.Transaction, bool)
+
+	// TracerProviderFunc is a function that provides
+	// the opentracing.Tracer for tracing HTTP requests
+	TracerProviderFunc func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
 
 	// ContextLoggerProviderFunc is a function that provides
 	// a logger from the current context.  If this function
@@ -206,6 +211,7 @@ var (
 	pkgServiceName               string
 	pkgUserAgent                 string
 	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
+	pkgTracerProviderFunc        func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
 	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
 	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
 	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
@@ -314,6 +320,7 @@ func SetDefaults(defaults *Defaults) {
 	pkgStatsdRate = defaults.StatsdRate
 	pkgStatsdSuccessTag = defaults.StatsdSuccessTag
 	pkgStatsdFailureTag = defaults.StatsdFailureTag
+	pkgTracerProviderFunc = defaults.TracerProviderFunc
 }
 
 // this creates a http client with sensible defaults
@@ -497,6 +504,14 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 
 	// create the internal HTTP request
 	request, err := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
+
+	// if tracing is enabled, wrap the request with the tracing provider
+	var span opentracing.Span
+	if pkgTracerProviderFunc != nil {
+		request, span = pkgTracerProviderFunc(ctx, fmt.Sprintf("%s %s", c.method, c.endpoint.Host), request)
+		defer span.Finish()
+	}
+
 	if err != nil {
 		if canLog {
 			logger.WithFields(logrus.Fields{
