@@ -109,7 +109,7 @@ type Defaults struct {
 
 // IClient - interface for the cb api client
 type IClient interface {
-	Delete(ctx context.Context) (int, error)
+	Delete(ctx context.Context, payload interface{}) (int, error)
 	Duration() time.Duration
 	Do(ctx context.Context, method string, payload interface{}) (int, error)
 	Get(ctx context.Context) (int, error)
@@ -882,8 +882,8 @@ func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error) {
 }
 
 // Delete performs an HTTP DELETE request
-func (c *Client) Delete(ctx context.Context) (int, error) {
+func (c *Client) Delete(ctx context.Context, payload interface{}) (int, error) {
 	c.method = http.MethodDelete
 
-	return c.Do(ctx, http.MethodDelete, nil)
+	return c.Do(ctx, http.MethodDelete, payload)
 }
