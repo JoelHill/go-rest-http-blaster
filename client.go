@@ -508,7 +508,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	// if tracing is enabled, wrap the request with the tracing provider
 	var span opentracing.Span
 	if pkgTracerProviderFunc != nil {
-		request, span = pkgTracerProviderFunc(ctx, fmt.Sprintf("%s %s%s", c.method, c.endpoint.Host, c.endpoint.Path), request)
+		// The span name needs to be sufficiently generic to avoid a grouping issue in Lightstep (breaking their search).
+		// It should not be the full URL, URI or Path, as that often inclues IDs.
+		// Note that 'url' is recorded, but as a tag on the span, from https://github.com/InVisionApp/opentracing-go-helpers
+		request, span = pkgTracerProviderFunc(ctx, fmt.Sprintf("%s %s", c.method, c.endpoint.Host), request)
 		defer span.Finish()
 	}
 
