@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/InVisionApp/go-logger"
 	"github.com/newrelic/go-agent"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
@@ -30,13 +29,6 @@ type Defaults struct {
 	// TracerProviderFunc is a function that provides
 	// the opentracing.Tracer for tracing HTTP requests
 	TracerProviderFunc func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
-
-	// ContextLoggerProviderFunc is a function that provides
-	// a logger from the current context.  If this function
-	// is not set, the client will create a new logger for
-	// the Request.
-	//DEPRECATED: This function will be removed in release 4.0
-	ContextLoggerProviderFunc func(ctx context.Context) (log.Logger, bool)
 
 	// RequestIDProviderFunc is a function that provides the
 	// parent Request id used in tracing the caller's Request.
@@ -74,7 +66,6 @@ var (
 	pkgUserAgent                 string
 	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
 	pkgTracerProviderFunc        func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
-	pkgCtxLoggerProviderFunc     func(ctx context.Context) (log.Logger, bool)
 	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
 	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
 	pkgOnce                      sync.Once
@@ -126,16 +117,6 @@ func ensurePackageVariables() {
 			}
 		}
 
-		// make sure the context logger provider exists
-		if pkgCtxLoggerProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be " +
-					"used for each request")
-			pkgCtxLoggerProviderFunc = func(ctx context.Context) (log.Logger, bool) {
-				return log.NewSimple(), true
-			}
-		}
-
 		// make sure the Request id provider exists
 		if pkgRequestIDProviderFunc == nil {
 			logrus.WithField("type", NAME).
@@ -174,7 +155,6 @@ func ensurePackageVariables() {
 func SetDefaults(defaults *Defaults) {
 	pkgServiceName = defaults.ServiceName
 	pkgNRTxnProviderFunc = defaults.NewRelicTransactionProviderFunc
-	pkgCtxLoggerProviderFunc = defaults.ContextLoggerProviderFunc
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
 	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc
 	pkgUserAgent = defaults.UserAgent

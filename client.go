@@ -431,11 +431,9 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 // Do will prepare the request and either run it directly
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
-	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
-	if !canLog || logger == nil {
-		logger = log.NewNoop()
+	if c.logger == nil {
+		c.logger = log.NewNoop()
 	}
-	c.logger = logger
 
 	if c.endpoint == nil {
 		err := errors.New("endpoint for request not set")
@@ -494,6 +492,12 @@ func (c *Client) SetTimeoutMS(timeout time.Duration) {
 	}
 
 	c.client.Timeout = timeout * time.Millisecond
+}
+
+// SetLogger will set the client's internal logger.
+// If no logger is set, a no-op logger will be used
+func (c *Client) SetLogger(logger log.Logger) {
+	c.logger = logger
 }
 
 // StatusCodeIsError is a shortcut to determine if the status code is
