@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/InVisionApp/go-logger"
-	logrusShim "github.com/InVisionApp/go-logger/shims/logrus"
 	"github.com/newrelic/go-agent"
 	"github.com/opentracing/opentracing-go"
 )
@@ -432,18 +431,11 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 // Do will prepare the request and either run it directly
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
-	// utilize block below after logrus dependency is removed
-	//if c.logger == nil {
-	//	c.logger = log.NewNoop()
-	//}
+	if c.logger == nil {
+		// TODO: remove this when logrus dependency is removed
+		c.logger = logrusShim(ctx)
 
-	//TODO: remove this after logrus dependency is removed
-	logrusLogger, ok := pkgCtxLoggerProviderFunc(ctx)
-	if !ok {
-		c.logger = log.NewNoop()
-	} else {
-		logger := logrusShim.New(logrusLogger.Logger)
-		c.logger = logger.(log.Logger)
+		//c.logger = log.NewNoop()
 	}
 
 	if c.endpoint == nil {

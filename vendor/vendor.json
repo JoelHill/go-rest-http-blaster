@@ -11,6 +11,12 @@
 			"versionExact": "master"
 		},
 		{
+			"checksumSHA1": "dTRagpjBwKUnhmISjwFWtwxi2MI=",
+			"path": "github.com/InVisionApp/go-logger/shims/logrus",
+			"revision": "578aa5e3a28ab647e87f86ce90fb58ac5690e60d",
+			"revisionTime": "2018-04-24T14:44:58Z"
+		},
+		{
 			"checksumSHA1": "+IQN6csaE5uxhZJnulb6uwhVCr4=",
 			"path": "github.com/klauspost/compress/flate",
 			"revision": "ea08389e0dc46025380296f7dd04ab0e8de36adb",
