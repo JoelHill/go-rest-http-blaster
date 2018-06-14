@@ -30,6 +30,13 @@ type Defaults struct {
 	// the opentracing.Tracer for tracing HTTP requests
 	TracerProviderFunc func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
 
+	// ContextLoggerProviderFunc is a function that provides
+	// a logger from the current context.  If this function
+	// is not set, the client will create a new logger for
+	// the Request.
+	// Deprecated: This function will return a generic Logger interface (defined in github.com/InVisionApp/go-logger) instead of a vendor-specific implementation
+	ContextLoggerProviderFunc func(ctx context.Context) (*logrus.Entry, bool)
+
 	// RequestIDProviderFunc is a function that provides the
 	// parent Request id used in tracing the caller's Request.
 	// If this function is not set, the client will generate
@@ -66,6 +73,7 @@ var (
 	pkgUserAgent                 string
 	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
 	pkgTracerProviderFunc        func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
+	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
 	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
 	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
 	pkgOnce                      sync.Once
@@ -117,6 +125,16 @@ func ensurePackageVariables() {
 			}
 		}
 
+		// make sure the context logger provider exists
+		if pkgCtxLoggerProviderFunc == nil {
+			logrus.WithField("type", NAME).
+				Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be " +
+					"used for each request")
+			pkgCtxLoggerProviderFunc = func(ctx context.Context) (*logrus.Entry, bool) {
+				return logrus.NewEntry(logrus.New()), true
+			}
+		}
+
 		// make sure the Request id provider exists
 		if pkgRequestIDProviderFunc == nil {
 			logrus.WithField("type", NAME).
@@ -155,6 +173,7 @@ func ensurePackageVariables() {
 func SetDefaults(defaults *Defaults) {
 	pkgServiceName = defaults.ServiceName
 	pkgNRTxnProviderFunc = defaults.NewRelicTransactionProviderFunc
+	pkgCtxLoggerProviderFunc = defaults.ContextLoggerProviderFunc
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
 	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc
 	pkgUserAgent = defaults.UserAgent
