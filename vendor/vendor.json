@@ -129,6 +129,14 @@
 			"path": "golang.org/x/sys/windows",
 			"revision": "d5840adf789d732bc8b00f37b26ca956a7cc8e79",
 			"revisionTime": "2017-12-14T14:09:03Z"
+		},
+		{
+			"checksumSHA1": "YKLf0V3VFgeBdotvM/vJ/L5AsxI=",
+			"path": "gopkg.in/h2non/gock.v1",
+			"revision": "4692cba4394f79372bfe85996501ad43db9d82e0",
+			"revisionTime": "2018-06-14T09:05:11Z",
+			"version": "master",
+			"versionExact": "master"
 		}
 	],
 	"rootPath": "github.com/InVisionApp/cbapiclient"

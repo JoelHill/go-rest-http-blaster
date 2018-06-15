@@ -118,7 +118,7 @@ func ensurePackageVariables() {
 		// make sure new relic transaction provider exists
 		if pkgNRTxnProviderFunc == nil {
 			logrus.WithField("type", NAME).
-				Warn("no NewRelicTransactionProviderFunc set")
+				Warn("cbapiclient: no NewRelicTransactionProviderFunc set")
 			pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
 				// the newrelic StartSegment function will start a new transaction
 				return nil, false
@@ -157,12 +157,12 @@ func ensurePackageVariables() {
 
 		// ensure statsd success and failure tags exist
 		if pkgStatsdSuccessTag == "" {
-			logrus.WithField("type", NAME).Info("no statsd success tag provided.  using processed:success.")
+			logrus.WithField("type", NAME).Info("cbapiclient: no statsd success tag provided.  using processed:success.")
 			pkgStatsdSuccessTag = "processed:success"
 		}
 
 		if pkgStatsdFailureTag == "" {
-			logrus.WithField("type", NAME).Info("no statsd failure tag provided.  using processed:failure.")
+			logrus.WithField("type", NAME).Info("cbapiclient: no statsd failure tag provided.  using processed:failure.")
 			pkgStatsdFailureTag = "processed:failure"
 		}
 	})
@@ -209,7 +209,6 @@ func newHTTPClient() *http.Client {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-	client.Timeout = requestTimeout
 
 	return client
 }
@@ -221,7 +220,7 @@ func NewClient(uri string) (*Client, error) {
 
 	ensurePackageVariables()
 
-	ep, err := url.Parse(uri)
+	ep, err := url.ParseRequestURI(uri)
 	if err != nil {
 		return nil, err
 	}

@@ -17,10 +17,6 @@ import (
 	"github.com/opentracing/opentracing-go"
 )
 
-// go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
-// go:generate counterfeiter -o ./fakes/fake_statsd_client_prototype.go . StatsdClientPrototype
-// go:generate counterfeiter -o ./fakes/fake_iclient.go . IClient
-
 const (
 	requestIDHeader      = "Request-ID"
 	requestSourceHeader  = "Request-Source"
@@ -56,9 +52,6 @@ type Client struct {
 
 	// endpoint is the destination for the http Request
 	endpoint *url.URL
-
-	// nrTxnName is the explicit New Relic transaction name
-	nrTxnName string
 
 	// customPrototypes is a map of interfaces that
 	// will be saturated when specific response codes
@@ -167,12 +160,12 @@ func (c *Client) conformsToReq014(request *http.Request) error {
 	check := req014HeaderCheck{}
 	for k, v := range c.headers {
 		request.Header.Set(k, v)
-		switch k {
-		case requestIDHeader:
+		switch {
+		case k == requestIDHeader && v != "":
 			check.requestIDOK = true
-		case requestSourceHeader:
+		case k == requestSourceHeader && v != "":
 			check.requestSourceOK = true
-		case callingServiceHeader:
+		case k == callingServiceHeader && v != "":
 			check.callingServiceOK = true
 		}
 	}
@@ -560,11 +553,6 @@ func (c *Client) SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, 
 	}
 
 	c.statsdStat = fmt.Sprintf("%s.%s", NAME, stat)
-}
-
-// SetNRTxnName will set the New Relic transaction name
-func (c *Client) SetNRTxnName(name string) {
-	c.nrTxnName = name
 }
 
 // SetContentType will set the request content type.  By default, all

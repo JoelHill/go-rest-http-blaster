@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+//go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
+//go:generate counterfeiter -o ./fakes/fake_statsd_client_prototype.go . StatsdClientPrototype
+
 // CircuitBreakerPrototype defines the circuit breaker Execute function signature
 type CircuitBreakerPrototype interface {
 	Execute(func() (interface{}, error)) (interface{}, error)
