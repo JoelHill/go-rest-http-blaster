@@ -189,7 +189,7 @@ type Client struct {
 	// flag to set this object in an error state
 	// this will prevent statsd calls if an error
 	// originated within this API
-	internalError bool
+	preflightError bool
 }
 
 // req014HeaderCheck will check for the presence of required outgoing
@@ -399,7 +399,7 @@ func (c *Client) applyContextDependentHeaders(ctx context.Context) {
 
 // reports the status code from the response
 func (c *Client) statsdReportResponse(statusCode int) {
-	if c.statsdClient != nil {
+	if c.statsdClient != nil && !c.preflightError {
 		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", statusCode))
 		if c.responseIsError {
 			tags = append(tags, pkgStatsdFailureTag)
@@ -412,7 +412,7 @@ func (c *Client) statsdReportResponse(statusCode int) {
 
 // reports the duration of the request
 func (c *Client) statsdReportDuration() {
-	if c.statsdClient != nil {
+	if c.statsdClient != nil && !c.preflightError {
 		var tags []string
 		if c.responseIsError {
 			tags = append(c.statsdTags, pkgStatsdFailureTag)
@@ -442,13 +442,16 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	// set headers that depend on context values
 	c.applyContextDependentHeaders(ctx)
 
+	// create a status code and a pointer to it....use this throughout the request
+	statusCode := http.StatusInternalServerError
+	statusCodePtr := &statusCode
+
 	// start the clock and report the duration when this function exits
-	defer func(c *Client, begin time.Time) {
-		if !c.internalError {
-			c.duration = time.Now().Sub(begin)
-			c.statsdReportDuration()
-		}
-	}(c, time.Now())
+	defer func(c *Client, begin time.Time, scPtr *int) {
+		c.duration = time.Now().Sub(begin)
+		c.statsdReportDuration()
+		c.statsdReportResponse(*scPtr)
+	}(c, time.Now(), statusCodePtr)
 
 	// variables for the next block
 	var (
@@ -470,7 +473,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 						"type":          NAME,
 					}).Error("request failed")
 				}
-				c.internalError = true
+				c.preflightError = true
 				return http.StatusInternalServerError, err
 			}
 		} else {
@@ -488,7 +491,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 						"type":          NAME,
 					}).Error("request failed")
 				}
-				c.internalError = true
+				c.preflightError = true
 				return http.StatusInternalServerError, errBS
 			}
 		}
@@ -522,7 +525,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 				"type":          NAME,
 			}).Error("request failed")
 		}
-		c.internalError = true
+		c.preflightError = true
 		return http.StatusInternalServerError, err
 	}
 
@@ -550,7 +553,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 				"type":          NAME,
 			}).Error("request failed")
 		}
-		c.internalError = true
+		c.preflightError = true
 		return http.StatusInternalServerError, errREQ14
 	}
 
@@ -569,20 +572,14 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	response, responseErr := c.client.Do(request)
 	// --------------------------------------------
 
-	// close request body immediately
-	if reqCloseErr := request.Body.Close(); reqCloseErr != nil {
-		// note this will NOT cause the request to fail
-		if canLog {
-			logger.WithFields(logrus.Fields{
-				"error_message": reqCloseErr.Error(),
-				"type":          NAME,
-			}).Error("close request body failed")
-		}
-	}
-
 	// end the external segment timing
 	if nrtxOK && nrExternalSegment.Request != nil {
 		nrExternalSegment.End()
+	}
+
+	// get status code
+	if response != nil {
+		statusCode = response.StatusCode
 	}
 
 	// request error
@@ -590,6 +587,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		if canLog {
 			// if this is a timeout, make note of it
 			if timeoutErr, ok := responseErr.(net.Error); ok && timeoutErr.Timeout() {
+				c.statsdTags = append(c.statsdTags, "timeout")
 				logger.WithFields(logrus.Fields{
 					"error_message": fmt.Sprintf("timed out calling %s: %s-%s", c.method, c.endpoint.Host, c.endpoint.Path),
 					"type":          fmt.Sprintf("%s_TIMEOUT", NAME),
@@ -601,7 +599,6 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 				}).Error("request failed")
 			}
 		}
-		c.internalError = true
 		return http.StatusInternalServerError, responseErr
 	}
 	// defer response body reader close
@@ -616,9 +613,6 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		}
 	}(response, logger)
 
-	// get status code
-	statusCode := response.StatusCode
-
 	// get response body
 	body, readErr := ioutil.ReadAll(response.Body)
 	if readErr != nil {
@@ -628,7 +622,6 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 				"type":          NAME,
 			}).Error("request failed")
 		}
-		c.internalError = true
 		return http.StatusInternalServerError, readErr
 	}
 
@@ -668,13 +661,10 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 						"type":          NAME,
 					}).Error("request failed")
 				}
-				c.internalError = true
 				return http.StatusInternalServerError, err
 			}
 		}
 	}
-
-	c.statsdReportResponse(statusCode)
 
 	if canLog {
 		logger.WithField("type", NAME).
@@ -703,7 +693,7 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 				"type":          NAME,
 			}).Error("config error")
 		}
-		c.internalError = true
+		c.preflightError = true
 		return http.StatusInternalServerError, err
 	}
 
