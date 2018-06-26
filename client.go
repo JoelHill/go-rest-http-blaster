@@ -143,11 +143,11 @@ func (c *Client) statsdReportResponse() {
 // reports the duration of the request
 func (c *Client) statsdReportDuration() {
 	if c.statsdClient != nil {
-		var tags []string
+		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", c.statusCode))
 		if c.responseIsError {
-			tags = append(c.statsdTags, pkgStatsdFailureTag)
+			tags = append(tags, pkgStatsdFailureTag)
 		} else {
-			tags = append(c.statsdTags, pkgStatsdSuccessTag)
+			tags = append(tags, pkgStatsdSuccessTag)
 		}
 		c.statsdClient.Timing(c.statsdStat, c.duration, tags, pkgStatsdRate)
 	}
@@ -160,13 +160,15 @@ func (c *Client) conformsToReq014(request *http.Request) error {
 	check := req014HeaderCheck{}
 	for k, v := range c.headers {
 		request.Header.Set(k, v)
-		switch {
-		case k == requestIDHeader && v != "":
-			check.requestIDOK = true
-		case k == requestSourceHeader && v != "":
-			check.requestSourceOK = true
-		case k == callingServiceHeader && v != "":
-			check.callingServiceOK = true
+		if v != "" {
+			switch k {
+			case requestIDHeader:
+				check.requestIDOK = true
+			case requestSourceHeader:
+				check.requestSourceOK = true
+			case callingServiceHeader:
+				check.callingServiceOK = true
+			}
 		}
 	}
 
@@ -274,7 +276,9 @@ func (c *Client) processResponseData(payload []byte, contentType string) error {
 				c.rawresponse = payload
 				c.logger.WithFields(map[string]interface{}{
 					"type": NAME,
-				}).Info("received a non-json response where a json type was expected")
+				}).Warn("cbapiclient: received a non-json response where a json type was expected")
+
+				c.statusCode = http.StatusUnprocessableEntity
 			}
 		}
 	}
@@ -362,15 +366,6 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	c.statusCode = response.StatusCode
 	c.responseIsError = c.statusCode < http.StatusOK || c.statusCode >= http.StatusMultipleChoices
 
-	// close request body immediately
-	if reqCloseErr := request.Body.Close(); reqCloseErr != nil {
-		// note this will NOT cause the request to fail
-		c.logger.WithFields(map[string]interface{}{
-			"error_message": reqCloseErr.Error(),
-			"type":          NAME,
-		}).Warn("close request body failed")
-	}
-
 	// request error
 	if responseErr != nil {
 		// if this is a timeout, make note of it
@@ -406,7 +401,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		c.rawresponse = body
 	}
 
-	if processResponseErr := c.processResponseData(body, request.Header.Get(contentTypeHeader)); processResponseErr != nil {
+	if processResponseErr := c.processResponseData(body, response.Header.Get(contentTypeHeader)); processResponseErr != nil {
 		return c.failAfterRequest(processResponseErr)
 	}
 
@@ -473,11 +468,7 @@ func (c *Client) KeepRawResponse() {
 // RawResponse is a shortcut to access the raw bytes returned
 // in the http response
 func (c *Client) RawResponse() []byte {
-	if c.keepRawResponse {
-		return c.rawresponse
-	}
-
-	return []byte{}
+	return c.rawresponse
 }
 
 // SetTimeoutMS sets the maximum number of milliseconds allowed for
