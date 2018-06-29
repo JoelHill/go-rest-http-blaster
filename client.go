@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"syscall"
 	"time"
 
 	"github.com/InVisionApp/go-logger"
@@ -364,6 +365,22 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 
 	// request error
 	if responseErr != nil {
+		switch responseErr.(type) {
+		case net.Error:
+			if responseErr.(net.Error).Timeout() {
+				c.statsdTags = append(c.statsdTags, "timeout")
+			}
+		case *net.OpError:
+			if responseErr.(*net.OpError).Op == "read" {
+				c.statsdTags = append(c.statsdTags, "connection_refused")
+			} else if responseErr.(*net.OpError).Op == "dial" {
+				c.statsdTags = append(c.statsdTags, "unknown_host")
+			}
+		case syscall.Errno:
+			if responseErr.(syscall.Errno) == syscall.ECONNREFUSED {
+				c.statsdTags = append(c.statsdTags, "connection_refused")
+			}
+		}
 		// if this is a timeout, make note of it
 		if timeoutErr, ok := responseErr.(net.Error); ok && timeoutErr.Timeout() {
 			c.statsdTags = append(c.statsdTags, "timeout")
