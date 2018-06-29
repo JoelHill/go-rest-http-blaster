@@ -3,6 +3,7 @@ package cbapiclient
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/InVisionApp/cbapiclient/fakes"
 	"github.com/InVisionApp/go-logger"
+	"github.com/InVisionApp/go-logger/shims/testlog"
 	"github.com/newrelic/go-agent"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -141,7 +143,7 @@ var _ = Describe("Client", func() {
 	})
 
 	// region REQ014
-	var _ = Describe("REQ014 checks", func() {
+	Describe("REQ014 checks", func() {
 		Context("happy path", func() {
 			It("throws no errors", func() {
 				defer gock.Off()
@@ -259,7 +261,7 @@ var _ = Describe("Client", func() {
 	// endregion
 
 	// region processOutgoingPayload
-	var _ = Describe("processOutgoingPayload", func() {
+	Describe("processOutgoingPayload", func() {
 		Context("happy path", func() {
 			It("processes the payload", func() {
 				payloadBytes, err := client.processOutgoingPayload(petStore)
@@ -318,7 +320,7 @@ var _ = Describe("Client", func() {
 	// endregion
 
 	// region statsd
-	var _ = Describe("statsd", func() {
+	Describe("statsd", func() {
 		JustBeforeEach(func() {
 			statsd.IncrStub = func(name string, tags []string, rate float64) error {
 				logBuffer.WriteString(fmt.Sprintf("INCR:%v\n", tags))
@@ -355,7 +357,7 @@ var _ = Describe("Client", func() {
 	// endregion
 
 	// region processResponseData
-	var _ = Describe("processResponseData", func() {
+	Describe("processResponseData", func() {
 		Context("happy path - custom prototype", func() {
 			It("saturates a custom response", func() {
 				defer gock.OffAll()
@@ -400,7 +402,7 @@ var _ = Describe("Client", func() {
 	// endregion
 
 	// region doInternal
-	var _ = Describe("doInternal", func() {
+	Describe("doInternal", func() {
 		Context("bad request", func() {
 			It("throws an error", func() {
 				client.logger = log.NewNoop()
@@ -419,12 +421,145 @@ var _ = Describe("Client", func() {
 				Expect(err.Error()).To(ContainSubstring(`json: unsupported type: func() bool`))
 			})
 		})
-		//Context("timeout", func() {
-		//	It("times out the request", func() {
-		//		defer gock.OffAll()
-		//		gock.New(endpointStr).Get("/").
-		//	})
-		//})
+		Context("response error", func() {
+			JustBeforeEach(func() {
+				client.logger = log.NewNoop()
+			})
+			It("returns a general response error", func() {
+				defer gock.OffAll()
+				gock.New(endpointStr).Get("/").ReplyError(errors.New("FAIL")).Status(http.StatusInternalServerError)
+				client.logger = log.NewNoop()
+				_, err := client.doInternal(ctx, nil)
+				Expect(err).ToNot(BeNil())
+			})
+		})
+		Context("timeout", func() {
+			JustBeforeEach(func() {
+				client.logger = log.NewNoop()
+			})
+			It("reports a timeout error", func() {
+				defer gock.OffAll()
+				gock.New(endpointStr).Get("/").ReplyError(fakes.TimeoutError{}).Status(http.StatusRequestTimeout)
+				_, err := client.doInternal(ctx, nil)
+				Expect(err).ToNot(BeNil())
+			})
+		})
+		Context("read body error", func() {
+			JustBeforeEach(func() {
+				client.logger = log.NewNoop()
+			})
+			It("chokes on the response", func() {
+				defer gock.OffAll()
+				resp := gock.New(endpointStr).Get("/").Reply(200)
+				resp.Body(&fakes.SadIOReader{})
+				_, err := client.doInternal(ctx, nil)
+				Expect(err).ToNot(BeNil())
+			})
+		})
+		Context("raw response", func() {
+			var bodyStr = `{"foo": "bar"}`
+			JustBeforeEach(func() {
+				client.logger = log.NewNoop()
+			})
+			It("keeps the raw response", func() {
+				defer gock.OffAll()
+				gock.New(endpointStr).Get("/").Reply(200).BodyString(bodyStr)
+				client.KeepRawResponse()
+				_, err := client.doInternal(ctx, nil)
+				Expect(err).To(BeNil())
+				rb := client.RawResponse()
+				Expect(string(rb)).To(Equal(bodyStr))
+			})
+		})
+	})
+	// endregion
+
+	// region closeResponse
+	Describe("closeResponse", func() {
+		var (
+			resp   *http.Response
+			logger *testlog.TestLogger
+		)
+		BeforeEach(func() {
+			resp = &http.Response{}
+			logger = testlog.New()
+		})
+		Context("happy paths", func() {
+			BeforeEach(func() {
+				resp.Body = fakes.HappyIOReadCloser{}
+			})
+			It("closes the response without error", func() {
+				closeResponse(resp, logger)
+				output := logger.Bytes()
+				Expect(len(output)).To(Equal(0))
+			})
+		})
+		Context("sad paths", func() {
+			BeforeEach(func() {
+				resp.Body = fakes.SadIOCloser{}
+			})
+			It("returns an error", func() {
+				closeResponse(resp, logger)
+				output := logger.Bytes()
+				Expect(string(output)).To(ContainSubstring("unable to close response body"))
+			})
+		})
+	})
+	// endregion
+
+	// region Do
+	Describe("Do", func() {
+		BeforeEach(func() {
+
+		})
+		Context("happy paths", func() {
+			Context("all good", func() {
+				JustBeforeEach(func() {
+					client.logger = log.NewNoop()
+					client.SetCircuitBreaker(cb)
+				})
+				It("all passes", func() {
+					statusCode, err := client.Do(ctx, "GET", nil)
+					Expect(err).To(BeNil())
+					Expect(statusCode).To(Equal(http.StatusOK))
+				})
+			})
+			Context("circuit breaker", func() {
+				JustBeforeEach(func() {
+					client.logger = log.NewNoop()
+					cb.ExecuteReturns(http.StatusOK, nil)
+					client.SetCircuitBreaker(cb)
+				})
+				It("circuit breaker succeeds", func() {
+					statusCode, err := client.Do(ctx, "GET", nil)
+					Expect(err).To(BeNil())
+					Expect(statusCode).To(Equal(http.StatusOK))
+				})
+			})
+		})
+		Context("sad paths", func() {
+			Context("missing endpoint", func() {
+				JustBeforeEach(func() {
+					client.endpoint = nil
+				})
+				It("returns an error", func() {
+					statusCode, err := client.Do(ctx, "GET", nil)
+					Expect(err).ToNot(BeNil())
+					Expect(statusCode).To(Equal(http.StatusInternalServerError))
+				})
+			})
+			Context("circuit breaker", func() {
+				JustBeforeEach(func() {
+					client.logger = log.NewNoop()
+					cb.ExecuteReturns(nil, errors.New("FAIL"))
+					client.SetCircuitBreaker(cb)
+				})
+				It("circuit breaker fails", func() {
+					statusCode, _ := client.Do(ctx, "GET", nil)
+					Expect(statusCode).To(Equal(http.StatusFailedDependency))
+				})
+			})
+		})
 	})
 	// endregion
 })

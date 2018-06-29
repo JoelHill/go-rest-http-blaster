@@ -362,39 +362,27 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	// --------------------------------------------
 	// --------------------------------------------
 
-	// set status code and error response flag
-	c.statusCode = response.StatusCode
-	c.responseIsError = c.statusCode < http.StatusOK || c.statusCode >= http.StatusMultipleChoices
-
 	// request error
 	if responseErr != nil {
 		// if this is a timeout, make note of it
 		if timeoutErr, ok := responseErr.(net.Error); ok && timeoutErr.Timeout() {
-			//TODO: record statsd event here
-			c.logger.WithFields(map[string]interface{}{
-				"error_message": fmt.Sprintf("timed out calling %s: %s-%s", c.method, c.endpoint.Host, c.endpoint.Path),
-				"type":          fmt.Sprintf("%s_TIMEOUT", NAME),
-			}).Error("request failed")
+			c.statsdTags = append(c.statsdTags, "timeout")
 		}
 
+		c.statusCode = http.StatusInternalServerError
 		return c.failAfterRequest(responseErr)
 	}
 
+	// set status code and error response flag
+	c.statusCode = response.StatusCode
+	c.responseIsError = c.statusCode < http.StatusOK || c.statusCode >= http.StatusMultipleChoices
+
 	// defer response body reader close
-	defer func(resp *http.Response, logger log.Logger) {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.WithFields(map[string]interface{}{
-				"error_message": closeErr.Error(),
-				"type":          NAME,
-			}).Error("unable to close response body")
-		}
-	}(response, c.logger)
+	defer closeResponse(response, c.logger)
 
 	// get response body
-	body, readErr := ioutil.ReadAll(response.Body)
-	if readErr != nil {
-		return c.failAfterRequest(readErr)
-	}
+	// ReadAll is called previously and would throw an error in http.Client.Do
+	body, _ := ioutil.ReadAll(response.Body)
 
 	// only keep the raw response if explicitly requested
 	if c.keepRawResponse {
@@ -410,6 +398,16 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}).Debugf("%s request to %s returned code %d", c.method, c.endpoint.Host, c.statusCode)
 
 	return c.statusCode, nil
+}
+
+// close the http response
+func closeResponse(resp *http.Response, logger log.Logger) {
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		logger.WithFields(map[string]interface{}{
+			"error_message": closeErr.Error(),
+			"type":          NAME,
+		}).Error("unable to close response body")
+	}
 }
 
 // endregion

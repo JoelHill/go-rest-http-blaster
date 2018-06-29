@@ -14,7 +14,17 @@
 			"checksumSHA1": "dTRagpjBwKUnhmISjwFWtwxi2MI=",
 			"path": "github.com/InVisionApp/go-logger/shims/logrus",
 			"revision": "578aa5e3a28ab647e87f86ce90fb58ac5690e60d",
-			"revisionTime": "2018-04-24T14:44:58Z"
+			"revisionTime": "2018-04-24T14:44:58Z",
+			"version": "master",
+			"versionExact": "master"
+		},
+		{
+			"checksumSHA1": "e1VnKa73D0KdBMbw4kzngW4ho+M=",
+			"path": "github.com/InVisionApp/go-logger/shims/testlog",
+			"revision": "578aa5e3a28ab647e87f86ce90fb58ac5690e60d",
+			"revisionTime": "2018-04-24T14:44:58Z",
+			"version": "master",
+			"versionExact": "master"
 		},
 		{
 			"checksumSHA1": "+IQN6csaE5uxhZJnulb6uwhVCr4=",
