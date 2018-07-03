@@ -13,7 +13,6 @@ import (
 	"github.com/InVisionApp/cbapiclient/fakes"
 	"github.com/InVisionApp/go-logger"
 	"github.com/InVisionApp/go-logger/shims/testlog"
-	"github.com/newrelic/go-agent"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opentracing/opentracing-go"
@@ -40,7 +39,6 @@ var _ = Describe("Client", func() {
 		defaults       *Defaults
 		cb             *fakes.FakeCircuitBreakerPrototype
 		statsd         *fakes.FakeStatsdClientPrototype
-		nrtx           *fakes.FakeTransaction
 		ctx            context.Context
 		endpoint       *url.URL
 		logBytes       []byte
@@ -61,7 +59,6 @@ var _ = Describe("Client", func() {
 		pkgUserAgent = "unit test"
 		pkgServiceName = "unit test"
 		endpointStr = "http://www.invisionapp.com"
-		nrtx = &fakes.FakeTransaction{}
 		span = opentracing.StartSpan("test")
 
 		cb = &fakes.FakeCircuitBreakerPrototype{}
@@ -102,26 +99,22 @@ var _ = Describe("Client", func() {
 			logger.Out = ioutil.Discard
 			return logrus.NewEntry(logger), true
 		}
-		pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
-			return nrtx, true
-		}
 		pkgTracerProviderFunc = func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span) {
 			return r, span
 		}
 
 		// defaults struct
 		defaults = &Defaults{
-			ServiceName:                     "unit-test",
-			ContextLoggerProviderFunc:       pkgCtxLoggerProviderFunc,
-			StatsdRate:                      1,
-			StatsdFailureTag:                "processed:failure",
-			StatsdSuccessTag:                "processed:success",
-			StrictREQ014:                    true,
-			UserAgent:                       "unit-test",
-			RequestIDProviderFunc:           pkgRequestIDProviderFunc,
-			RequestSourceProviderFunc:       pkgRequestSourceProviderFunc,
-			TracerProviderFunc:              pkgTracerProviderFunc,
-			NewRelicTransactionProviderFunc: pkgNRTxnProviderFunc,
+			ServiceName:               "unit-test",
+			ContextLoggerProviderFunc: pkgCtxLoggerProviderFunc,
+			StatsdRate:                1,
+			StatsdFailureTag:          "processed:failure",
+			StatsdSuccessTag:          "processed:success",
+			StrictREQ014:              true,
+			UserAgent:                 "unit-test",
+			RequestIDProviderFunc:     pkgRequestIDProviderFunc,
+			RequestSourceProviderFunc: pkgRequestSourceProviderFunc,
+			TracerProviderFunc:        pkgTracerProviderFunc,
 		}
 	})
 

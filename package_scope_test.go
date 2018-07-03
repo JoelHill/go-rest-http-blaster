@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/InVisionApp/cbapiclient/fakes"
-	"github.com/newrelic/go-agent"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 
@@ -20,23 +18,20 @@ import (
 
 var _ = Describe("PackageScope", func() {
 	var (
-		ctx                             context.Context
-		defaults                        *Defaults
-		logBytes                        []byte
-		logBuffer                       *bytes.Buffer
-		contextLoggerProviderFunc       func(ctx context.Context) (*logrus.Entry, bool)
-		requestIDProviderFunc           func(ctx context.Context) (string, bool)
-		requestSourceProviderFunc       func(ctx context.Context) (string, bool)
-		tracerProviderFunc              func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
-		newRelicTransactionProviderFunc func(ctx context.Context) (newrelic.Transaction, bool)
-		span                            opentracing.Span
-		nrtx                            *fakes.FakeTransaction
+		ctx                       context.Context
+		defaults                  *Defaults
+		logBytes                  []byte
+		logBuffer                 *bytes.Buffer
+		contextLoggerProviderFunc func(ctx context.Context) (*logrus.Entry, bool)
+		requestIDProviderFunc     func(ctx context.Context) (string, bool)
+		requestSourceProviderFunc func(ctx context.Context) (string, bool)
+		tracerProviderFunc        func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
+		span                      opentracing.Span
 	)
 
 	BeforeEach(func() {
 		// zero all package vars
 		pkgServiceName = ""
-		pkgNRTxnProviderFunc = nil
 		pkgCtxLoggerProviderFunc = nil
 		pkgRequestIDProviderFunc = nil
 		pkgRequestSourceProviderFunc = nil
@@ -51,7 +46,6 @@ var _ = Describe("PackageScope", func() {
 		logBytes = []byte{}
 		logBuffer = bytes.NewBuffer(logBytes)
 		span = opentracing.StartSpan("test")
-		nrtx = &fakes.FakeTransaction{}
 
 		// default funcs
 		contextLoggerProviderFunc = func(ctx context.Context) (*logrus.Entry, bool) {
@@ -68,23 +62,19 @@ var _ = Describe("PackageScope", func() {
 		tracerProviderFunc = func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span) {
 			return r, span
 		}
-		newRelicTransactionProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
-			return nrtx, true
-		}
 
 		// defaults struct
 		defaults = &Defaults{
-			ServiceName:                     "unit-test",
-			ContextLoggerProviderFunc:       contextLoggerProviderFunc,
-			StatsdRate:                      1,
-			StatsdFailureTag:                "failed",
-			StatsdSuccessTag:                "success",
-			StrictREQ014:                    true,
-			UserAgent:                       "unit-test",
-			RequestIDProviderFunc:           requestIDProviderFunc,
-			RequestSourceProviderFunc:       requestSourceProviderFunc,
-			TracerProviderFunc:              tracerProviderFunc,
-			NewRelicTransactionProviderFunc: newRelicTransactionProviderFunc,
+			ServiceName:               "unit-test",
+			ContextLoggerProviderFunc: contextLoggerProviderFunc,
+			StatsdRate:                1,
+			StatsdFailureTag:          "failed",
+			StatsdSuccessTag:          "success",
+			StrictREQ014:              true,
+			UserAgent:                 "unit-test",
+			RequestIDProviderFunc:     requestIDProviderFunc,
+			RequestSourceProviderFunc: requestSourceProviderFunc,
+			TracerProviderFunc:        tracerProviderFunc,
 		}
 
 		// env
@@ -148,14 +138,6 @@ var _ = Describe("PackageScope", func() {
 				Expect(request).ToNot(BeNil())
 				Expect(request).To(Equal(r))
 				Expect(tspan).To(Equal(span))
-			})
-			It("sets mew relic transaction provider", func() {
-				Expect(pkgNRTxnProviderFunc).ToNot(BeNil())
-
-				By("testing new relic transaction provider")
-				txn, ok := pkgNRTxnProviderFunc(ctx)
-				Expect(txn).To(Equal(nrtx))
-				Expect(ok).To(BeTrue())
 			})
 		})
 	})
@@ -223,21 +205,11 @@ var _ = Describe("PackageScope", func() {
 		Context("new relic txn provider", func() {
 			BeforeEach(func() {
 				logrus.SetOutput(logBuffer)
-				defaults.NewRelicTransactionProviderFunc = nil
 				SetDefaults(defaults)
 				ensurePackageVariables()
 			})
 			AfterEach(func() {
 				logrus.SetOutput(os.Stderr)
-			})
-			It("will warn about missing context logger provider", func() {
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("cbapiclient: no NewRelicTransactionProviderFunc set"))
-				Expect(pkgNRTxnProviderFunc).ToNot(BeNil())
-
-				By("testing default newrelic txn provider")
-				txn, ok := pkgNRTxnProviderFunc(ctx)
-				Expect(txn).To(BeNil())
-				Expect(ok).To(BeFalse())
 			})
 		})
 		Context("request id", func() {

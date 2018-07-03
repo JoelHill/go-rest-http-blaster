@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/InVisionApp/go-logger"
-	"github.com/newrelic/go-agent"
 	"github.com/opentracing/opentracing-go"
 )
 
@@ -101,9 +100,6 @@ type Client struct {
 
 	// logger that lives throughout request lifecycle, set in Do()
 	logger log.Logger
-
-	// externalSegment gets attached right before request is made
-	externalSegment newrelic.ExternalSegment
 
 	// openTracingSpan gets attached right before request is made
 	openTracingSpan opentracing.Span
@@ -220,9 +216,6 @@ func (c *Client) processOutgoingPayload(payload interface{}) ([]byte, error) {
 
 // begin tracking request
 func (c *Client) immediatePreflight(ctx context.Context, request *http.Request) {
-	// get new relic transaction provider, if it exists
-	nrtx, nrtxOK := pkgNRTxnProviderFunc(ctx)
-
 	// if tracing is enabled, wrap the request with the tracing provider
 	if pkgTracerProviderFunc != nil {
 		var span opentracing.Span
@@ -231,15 +224,6 @@ func (c *Client) immediatePreflight(ctx context.Context, request *http.Request) 
 		// Note that 'url' is recorded, but as a tag on the openTracingSpan, from https://github.com/InVisionApp/opentracing-go-helpers
 		request, span = pkgTracerProviderFunc(ctx, fmt.Sprintf("%s %s", c.method, c.endpoint.Host), request)
 		c.openTracingSpan = span
-	}
-
-	// create new relic external segment and start it
-	if nrtxOK {
-		// StartExternalSegment will create a new New Relic external segment
-		// measurement for the request.  It will reuse a New Relic transaction
-		// provided in SetDefaults.  Otherwise it will start a new transaction.
-		// get new relic transaction from context
-		c.externalSegment = newrelic.StartExternalSegment(nrtx, request)
 	}
 }
 
@@ -292,7 +276,6 @@ func (c *Client) cleanup() {
 	if !c.internalError {
 		c.statsdReportResponse()
 		c.statsdReportDuration()
-		c.externalSegment.End()
 		if c.openTracingSpan != nil {
 			c.openTracingSpan.Finish()
 		}

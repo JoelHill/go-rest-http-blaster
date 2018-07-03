@@ -23,12 +23,6 @@ type Defaults struct {
 	// ServiceName is the name of the calling service
 	ServiceName string
 
-	// NewRelicTransactionProviderFunc is a function that
-	// provides the New Relic transaction to be used in the
-	// HTTP Request.  If this function is not set, the client
-	// will create a new New Relic transaction
-	NewRelicTransactionProviderFunc func(ctx context.Context) (newrelic.Transaction, bool)
-
 	// ContextLoggerProviderFunc is a function that provides
 	// a logger from the current context.  If this function
 	// is not set, the client will create a new logger for
@@ -48,8 +42,6 @@ will provide its own defaults:
 
 * `ServiceName` - if the service name is not provided, `cbapiclient` will look for an environment variable 
 called `SERVICE_NAME`.  If that variable doesnt exist, `cbapiclient` will fall back to `HOSTNAME`
-* `NewRelicTransactionProviderFunc` - if this function is not provided, `cbapiclient` will start a new New Relic 
-transaction
 * `ContextLoggerProviderFunc` - if this function is not provided, `cbapiclient` will created a new `logrus.Entry` 
 to use for the request
 * `RequestIDProviderFunc` - if this function is not provided, `cbapiclient` will generate a new UUID to use for 

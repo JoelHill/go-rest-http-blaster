@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/newrelic/go-agent"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
@@ -19,12 +18,6 @@ import (
 type Defaults struct {
 	// ServiceName is the name of the calling service
 	ServiceName string
-
-	// NewRelicTransactionProviderFunc is a function that
-	// provides the New Relic transaction to be used in the
-	// HTTP Request.  If this function is not set, the client
-	// will create a new New Relic transaction
-	NewRelicTransactionProviderFunc func(ctx context.Context) (newrelic.Transaction, bool)
 
 	// TracerProviderFunc is a function that provides
 	// the opentracing.Tracer for tracing HTTP requests
@@ -71,7 +64,6 @@ type Defaults struct {
 var (
 	pkgServiceName               string
 	pkgUserAgent                 string
-	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
 	pkgTracerProviderFunc        func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
 	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
 	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
@@ -112,16 +104,6 @@ func ensurePackageVariables() {
 				pkgUserAgent = pkgServiceName
 			} else {
 				pkgUserAgent = fmt.Sprintf("%s-%s", pkgServiceName, os.Getenv("HOSTNAME"))
-			}
-		}
-
-		// make sure new relic transaction provider exists
-		if pkgNRTxnProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("cbapiclient: no NewRelicTransactionProviderFunc set")
-			pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
-				// the newrelic StartSegment function will start a new transaction
-				return nil, false
 			}
 		}
 
@@ -172,7 +154,6 @@ func ensurePackageVariables() {
 // be used on all requests
 func SetDefaults(defaults *Defaults) {
 	pkgServiceName = defaults.ServiceName
-	pkgNRTxnProviderFunc = defaults.NewRelicTransactionProviderFunc
 	pkgCtxLoggerProviderFunc = defaults.ContextLoggerProviderFunc
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
 	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc

@@ -7,6 +7,7 @@ import (
 
 //go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
 //go:generate counterfeiter -o ./fakes/fake_statsd_client_prototype.go . StatsdClientPrototype
+//go:generate counterfeiter -o ./fakes/fake_client.go . IClient
 
 // CircuitBreakerPrototype defines the circuit breaker Execute function signature
 type CircuitBreakerPrototype interface {
