@@ -23,13 +23,6 @@ type Defaults struct {
 	// the opentracing.Tracer for tracing HTTP requests
 	TracerProviderFunc func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
 
-	// ContextLoggerProviderFunc is a function that provides
-	// a logger from the current context.  If this function
-	// is not set, the client will create a new logger for
-	// the Request.
-	// Deprecated: This function will return a generic Logger interface (defined in github.com/InVisionApp/go-logger) instead of a vendor-specific implementation
-	ContextLoggerProviderFunc func(ctx context.Context) (*logrus.Entry, bool)
-
 	// RequestIDProviderFunc is a function that provides the
 	// parent Request id used in tracing the caller's Request.
 	// If this function is not set, the client will generate
@@ -53,12 +46,6 @@ type Defaults struct {
 
 	// StatsdRate is the statsd reporting rate
 	StatsdRate float64
-
-	// StatsdSuccessTag is the tag added to the statsd metric when the request succeeds (200 <= status_code < 300)
-	StatsdSuccessTag string
-
-	// StatsdFailureTag is the tag added to the statsd metric when the request fails
-	StatsdFailureTag string
 }
 ```
 
@@ -68,14 +55,11 @@ will provide its own defaults:
 * `ServiceName` - if the service name is not provided, `cbapiclient` will look for an environment variable 
   called `SERVICE_NAME`.  If that variable doesnt exist, `cbapiclient` will fall back to `HOSTNAME`
 * `TracerProviderFunc` - The function that will wrap the request for http tracing.  No function is used if not provided
-* `ContextLoggerProviderFunc` - if this function is not provided, `cbapiclient` will created a new `logrus.Entry` to use for the request (_This is deprecated. The 5.0.0 release will not have a logrus dependency_)
 * `RequestIDProviderFunc` - function that provides the `Request-ID` header.  If no function is set, the `Request-ID` header will not be set
 * `RequestSourceProviderFunc`function that provides the `Request-Source` header.  If no function is set, the `Request-Source` header will not be sent.
 * `UserAgent` User supplied user-agent string.  Defaults to `[service name]-[hostname]`
 * `StrictREQ014` - will return an error if the REQ014 headers are not provided when the request is launched
 * `StatsdRate`- The statsd reporting rate.
-* `StatsdSuccessTag` - The statsd tag to use for 2xx responses.  Defaults to `processed:success`
-* `StatsdFailureTag` - The statsd tag to use for non-2xx responses.  Defaults to `processed:failure`
 
 Typical usage, with [jelly](https://github.com/InVisionApp/jelly) functions:
 
@@ -94,7 +78,6 @@ const serviceName = "my-service"
 func main() {
 	cbapiclient.SetDefaults(&cbapi.Defaults{
 		ServiceName:               serviceName,
-		ContextLoggerProviderFunc: jelly.GetContextLogger,
 		RequestIDProviderFunc:     jelly.GetRequestID,
 	})
 }

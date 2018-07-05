@@ -40,6 +40,21 @@ const NAME = "cbapiclient"
 
 // region STRUCT
 
+// ClientOptions encapsulates all available options for a new client
+type ClientOptions struct {
+	Endpoint                   string
+	RouteMask                  string
+	CalledService              string
+	WillSaturate               interface{}
+	WillSaturateOnError        interface{}
+	WillSaturateWithStatusCode map[int]interface{}
+	TimeoutMS                  int
+	CircuitBreaker             CircuitBreakerPrototype
+	Headers                    map[string]string
+	KeepRawResponse            bool
+	Logger                     log.Logger
+}
+
 // Client encapsulates the http Request functionality
 type Client struct {
 	// prototype will be saturated when the Request succeeds.
@@ -106,6 +121,12 @@ type Client struct {
 
 	// status code gets tacked on after the request
 	statusCode int
+
+	// the service called
+	calledService string
+
+	// mask of the route
+	routeMask string
 }
 
 // endregion
@@ -128,28 +149,17 @@ func (c *Client) applyContextDependentHeaders(ctx context.Context) {
 	}
 }
 
-// reports the status code from the response
-func (c *Client) statsdReportResponse() {
-	if c.statsdClient != nil {
-		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", c.statusCode))
-		if c.responseIsError {
-			tags = append(tags, pkgStatsdFailureTag)
-		} else {
-			tags = append(tags, pkgStatsdSuccessTag)
-		}
-		c.statsdClient.Incr(c.statsdStat, tags, pkgStatsdRate)
-	}
-}
-
 // reports the duration of the request
 func (c *Client) statsdReportDuration() {
 	if c.statsdClient != nil {
-		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", c.statusCode))
-		if c.responseIsError {
-			tags = append(tags, pkgStatsdFailureTag)
-		} else {
-			tags = append(tags, pkgStatsdSuccessTag)
+		tags := []string{
+			fmt.Sprintf("response-code:%d", c.statusCode),
+			fmt.Sprintf("response-type:%s", responseTypeForStatusCode(c.statusCode)),
+			fmt.Sprintf("http-verb:%s", c.method),
+			fmt.Sprintf("called-service:%s", c.calledService),
+			fmt.Sprintf("route:%s", c.routeMask),
 		}
+		tags = append(c.statsdTags, tags...)
 		c.statsdClient.Timing(c.statsdStat, c.duration, tags, pkgStatsdRate)
 	}
 }
@@ -278,7 +288,6 @@ func (c *Client) processResponseData(payload []byte, contentType string) error {
 // close tracking
 func (c *Client) cleanup() {
 	if !c.internalError {
-		c.statsdReportResponse()
 		c.statsdReportDuration()
 		if c.openTracingSpan != nil {
 			c.openTracingSpan.Finish()
@@ -422,12 +431,10 @@ func closeResponse(resp *http.Response, logger log.Logger) {
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
 	if c.logger == nil {
-		// TODO: remove this when logrus dependency is removed
-		c.logger = logrusShim(ctx)
-
-		//c.logger = log.NewNoop()
+		c.logger = log.NewNoop()
 	}
 
+	c.method = method
 	if c.endpoint == nil {
 		err := errors.New("endpoint for request not set")
 		c.logger.WithFields(map[string]interface{}{
@@ -475,12 +482,12 @@ func (c *Client) RawResponse() []byte {
 
 // SetTimeoutMS sets the maximum number of milliseconds allowed for
 // a request to complete.  The default request timeout is 8 seconds (8000 ms)
-func (c *Client) SetTimeoutMS(timeout time.Duration) {
+func (c *Client) SetTimeoutMS(timeout int) {
 	if timeout < 0 {
 		timeout = 0
 	}
 
-	c.client.Timeout = timeout * time.Millisecond
+	c.client.Timeout = time.Duration(timeout) * time.Millisecond
 }
 
 // SetLogger will set the client's internal logger.
@@ -540,12 +547,7 @@ func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype) {
 func (c *Client) SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, tags []string) {
 	c.statsdClient = sdClient
 	c.statsdTags = tags
-
-	if stat == "" {
-		stat = "default"
-	}
-
-	c.statsdStat = fmt.Sprintf("%s.%s", NAME, stat)
+	c.statsdStat = stat
 }
 
 // SetContentType will set the request content type.  By default, all

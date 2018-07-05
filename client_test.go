@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -54,8 +53,6 @@ var _ = Describe("Client", func() {
 		ctx = context.Background()
 
 		pkgStrictREQ014 = true
-		pkgStatsdFailureTag = "success"
-		pkgStatsdFailureTag = "failure"
 		pkgUserAgent = "unit test"
 		pkgServiceName = "unit test"
 		endpointStr = "http://www.invisionapp.com"
@@ -94,11 +91,6 @@ var _ = Describe("Client", func() {
 		pkgRequestSourceProviderFunc = func(ctx context.Context) (string, bool) {
 			return "unit-test-request-source", true
 		}
-		pkgCtxLoggerProviderFunc = func(ctx context.Context) (*logrus.Entry, bool) {
-			logger := logrus.New()
-			logger.Out = ioutil.Discard
-			return logrus.NewEntry(logger), true
-		}
 		pkgTracerProviderFunc = func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span) {
 			return r, span
 		}
@@ -106,10 +98,7 @@ var _ = Describe("Client", func() {
 		// defaults struct
 		defaults = &Defaults{
 			ServiceName:               "unit-test",
-			ContextLoggerProviderFunc: pkgCtxLoggerProviderFunc,
 			StatsdRate:                1,
-			StatsdFailureTag:          "processed:failure",
-			StatsdSuccessTag:          "processed:success",
 			StrictREQ014:              true,
 			UserAgent:                 "unit-test",
 			RequestIDProviderFunc:     pkgRequestIDProviderFunc,
@@ -331,8 +320,7 @@ var _ = Describe("Client", func() {
 
 				client.Get(ctx)
 
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("INCR:[status_code:200 processed:success]"))
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("TIMING:[status_code:200 processed:success]"))
+				Expect(string(logBuffer.Bytes())).To(ContainSubstring("TIMING:[response-code:200 response-type:2xx http-verb:GET called-service: route:]"))
 			})
 		})
 		Context("happy sad path", func() {
@@ -342,8 +330,7 @@ var _ = Describe("Client", func() {
 
 				client.Get(ctx)
 
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("INCR:[status_code:500 processed:failure]"))
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("TIMING:[status_code:500 processed:failure]"))
+				Expect(string(logBuffer.Bytes())).To(ContainSubstring("TIMING:[response-code:500 response-type:5xx http-verb:GET called-service: route:]"))
 			})
 		})
 	})
