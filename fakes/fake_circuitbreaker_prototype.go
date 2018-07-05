@@ -3,8 +3,6 @@ package fakes
 
 import (
 	"sync"
-
-	"github.com/InVisionApp/cbapiclient"
 )
 
 type FakeCircuitBreakerPrototype struct {
@@ -99,5 +97,3 @@ func (fake *FakeCircuitBreakerPrototype) recordInvocation(key string, args []int
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
-
-var _ cbapiclient.CircuitBreakerPrototype = new(FakeCircuitBreakerPrototype)

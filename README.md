@@ -1,10 +1,6 @@
 # CBAPIClient
 
-CBAPIClient is an opinionated **Go** HTTP client that provides built-in support for the following common InVision design patterns:
-
-* Circuit Breakers
-* New Relic Transactions in Context
-* Logrus logger in Context
+CBAPIClient is a **Go** HTTP client that provides built-in support for circuit breakers, statsd, and open tracing.
 
 ## Usage
 
@@ -23,16 +19,15 @@ type Defaults struct {
 	// ServiceName is the name of the calling service
 	ServiceName string
 
-	// NewRelicTransactionProviderFunc is a function that
-	// provides the New Relic transaction to be used in the
-	// HTTP Request.  If this function is not set, the client
-	// will create a new New Relic transaction
-	NewRelicTransactionProviderFunc func(ctx context.Context) (newrelic.Transaction, bool)
+	// TracerProviderFunc is a function that provides
+	// the opentracing.Tracer for tracing HTTP requests
+	TracerProviderFunc func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
 
 	// ContextLoggerProviderFunc is a function that provides
 	// a logger from the current context.  If this function
 	// is not set, the client will create a new logger for
 	// the Request.
+	// Deprecated: This function will return a generic Logger interface (defined in github.com/InVisionApp/go-logger) instead of a vendor-specific implementation
 	ContextLoggerProviderFunc func(ctx context.Context) (*logrus.Entry, bool)
 
 	// RequestIDProviderFunc is a function that provides the
@@ -40,6 +35,30 @@ type Defaults struct {
 	// If this function is not set, the client will generate
 	// a new UUID for the Request id.
 	RequestIDProviderFunc func(ctx context.Context) (string, bool)
+
+	// RequestSourceProviderFunc is a function that provides
+	// the Request-Source header
+	RequestSourceProviderFunc func(ctx context.Context) (string, bool)
+
+	// UserAgent is a package-level user agent header used for
+	// each outgoing request
+	UserAgent string
+
+	// StrictREQ014 will cancel any request and return an error if any of the following
+	// headers are missing:
+	// 		Request-ID
+	// 		Request-Source
+	// 		Calling-Service
+	StrictREQ014 bool
+
+	// StatsdRate is the statsd reporting rate
+	StatsdRate float64
+
+	// StatsdSuccessTag is the tag added to the statsd metric when the request succeeds (200 <= status_code < 300)
+	StatsdSuccessTag string
+
+	// StatsdFailureTag is the tag added to the statsd metric when the request fails
+	StatsdFailureTag string
 }
 ```
 
@@ -47,13 +66,16 @@ It is strongly recommended that you provide these defaults.  However, if they ar
 will provide its own defaults:
 
 * `ServiceName` - if the service name is not provided, `cbapiclient` will look for an environment variable 
-called `SERVICE_NAME`.  If that variable doesnt exist, `cbapiclient` will fall back to `HOSTNAME`
-* `NewRelicTransactionProviderFunc` - if this function is not provided, `cbapiclient` will start a new New Relic 
-transaction
-* `ContextLoggerProviderFunc` - if this function is not provided, `cbapiclient` will created a new `logrus.Entry` 
-to use for the request
-* `RequestIDProviderFunc` - if this function is not provided, `cbapiclient` will generate a new UUID to use for 
-the request
+  called `SERVICE_NAME`.  If that variable doesnt exist, `cbapiclient` will fall back to `HOSTNAME`
+* `TracerProviderFunc` - The function that will wrap the request for http tracing.  No function is used if not provided
+* `ContextLoggerProviderFunc` - if this function is not provided, `cbapiclient` will created a new `logrus.Entry` to use for the request (_This is deprecated. The 5.0.0 release will not have a logrus dependency_)
+* `RequestIDProviderFunc` - function that provides the `Request-ID` header.  If no function is set, the `Request-ID` header will not be set
+* `RequestSourceProviderFunc`function that provides the `Request-Source` header.  If no function is set, the `Request-Source` header will not be sent.
+* `UserAgent` User supplied user-agent string.  Defaults to `[service name]-[hostname]`
+* `StrictREQ014` - will return an error if the REQ014 headers are not provided when the request is launched
+* `StatsdRate`- The statsd reporting rate.
+* `StatsdSuccessTag` - The statsd tag to use for 2xx responses.  Defaults to `processed:success`
+* `StatsdFailureTag` - The statsd tag to use for non-2xx responses.  Defaults to `processed:failure`
 
 Typical usage, with [jelly](https://github.com/InVisionApp/jelly) functions:
 
@@ -63,18 +85,17 @@ package main
 import (
 	"fmt"
 	
-	cbapi "github.com/InVisionApp/cbapiclient"
+	"github.com/InVisionApp/cbapiclient"
 	"github.com/InVisionApp/jelly"
 )
 
 const serviceName = "my-service"
 
 func main() {
-	cbapi.SetDefaults(&cbapi.Defaults{
-		ServiceName: serviceName,
-		NewRelicTransactionProviderFunc: jelly.GetNewRelicTransaction,
+	cbapiclient.SetDefaults(&cbapi.Defaults{
+		ServiceName:               serviceName,
 		ContextLoggerProviderFunc: jelly.GetContextLogger,
-		RequestIDProviderFunc: jelly.GetRequestID,
+		RequestIDProviderFunc:     jelly.GetRequestID,
 	})
 }
 ```
@@ -122,9 +143,9 @@ differently depending on what you're trying to do:
 	* Use this function to saturate the struct you expect when a specific status code is returned.  
 	Structs provided here take precedence over `WillSaturate` and `WillSaturateOnError`.  For example, if a 
 	specific response is expected for a `401` error, and a struct is provided for `401`, then that struct will 
-	be saturated when the response is `401`, regardless what was provided in `WillSaturateOnError`	 
+		e saturated when the response is `401`, regardless what was provided in `WillSaturateOnError`	 
 	
-#### Convenience Functions	
+		## Convenience Functions	
 
 `cbapiclient` provides the following functions for convenience:
 
@@ -163,7 +184,7 @@ import (
 	"context"
 	"log"
 
-	cbapi "github.com/InVisionApp/cbapiclient"
+	"github.com/InVisionApp/cbapiclient"
 )
 
 type ResponsePayload struct {
@@ -175,7 +196,7 @@ func main() {
 	ctx := context.Background()
 
 	// make you a client
-	c, err := cbapi.NewClient("http://localhost:8080/foo/bar")
+	c, err := cbapiclient.NewClient("http://localhost:8080/foo/bar")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -201,20 +222,20 @@ import (
 	"context"
 	"log"
 
-	cbapi "github.com/InVisionApp/cbapiclient"
+	"github.com/InVisionApp/cbapiclient"
 )
 
 func main() {
 	ctx := context.Background()
 
 	// make you a client
-	c, err := cbapi.NewClient("http://localhost:8080/foo/bar/xml")
+	c, err := cbapiclient.NewClient("http://localhost:8080/foo/bar/xml")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
 	
 	// xml? it could happen ;)
-	c.SetContentType("application/xml")
+    c.SetHeader("Accept", "application/xml")
 	c.KeepRawResponse()
 
 	// run the request 
@@ -345,6 +366,3 @@ func main() {
 
 ```
 
-## Future enhancements
-
-* Add a `statsd` provider using the same convention established in `Defaults`

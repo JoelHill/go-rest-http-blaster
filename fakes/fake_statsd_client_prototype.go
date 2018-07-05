@@ -4,8 +4,6 @@ package fakes
 import (
 	"sync"
 	"time"
-
-	"github.com/InVisionApp/cbapiclient"
 )
 
 type FakeStatsdClientPrototype struct {
@@ -176,5 +174,3 @@ func (fake *FakeStatsdClientPrototype) recordInvocation(key string, args []inter
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
-
-var _ cbapiclient.StatsdClientPrototype = new(FakeStatsdClientPrototype)

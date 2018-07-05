@@ -3,6 +3,30 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "bUHknecjFliPHamDIoTP953I0TQ=",
+			"path": "github.com/InVisionApp/go-logger",
+			"revision": "578aa5e3a28ab647e87f86ce90fb58ac5690e60d",
+			"revisionTime": "2018-04-24T14:44:58Z",
+			"version": "master",
+			"versionExact": "master"
+		},
+		{
+			"checksumSHA1": "dTRagpjBwKUnhmISjwFWtwxi2MI=",
+			"path": "github.com/InVisionApp/go-logger/shims/logrus",
+			"revision": "578aa5e3a28ab647e87f86ce90fb58ac5690e60d",
+			"revisionTime": "2018-04-24T14:44:58Z",
+			"version": "master",
+			"versionExact": "master"
+		},
+		{
+			"checksumSHA1": "e1VnKa73D0KdBMbw4kzngW4ho+M=",
+			"path": "github.com/InVisionApp/go-logger/shims/testlog",
+			"revision": "578aa5e3a28ab647e87f86ce90fb58ac5690e60d",
+			"revisionTime": "2018-04-24T14:44:58Z",
+			"version": "master",
+			"versionExact": "master"
+		},
+		{
 			"checksumSHA1": "+IQN6csaE5uxhZJnulb6uwhVCr4=",
 			"path": "github.com/klauspost/compress/flate",
 			"revision": "ea08389e0dc46025380296f7dd04ab0e8de36adb",
@@ -25,24 +49,6 @@
 			"path": "github.com/klauspost/cpuid",
 			"revision": "eae9b3e628d72774e13bdf024e78c0802f85a5b9",
 			"revisionTime": "2017-11-18T20:55:20Z"
-		},
-		{
-			"checksumSHA1": "GUy17UT17gYQH/n1/q4ttdx5qvQ=",
-			"path": "github.com/newrelic/go-agent",
-			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
-			"revisionTime": "2017-11-28T00:03:15Z"
-		},
-		{
-			"checksumSHA1": "e3oGdtK9dMZcco7M1G1OxpDAzKk=",
-			"path": "github.com/newrelic/go-agent/internal",
-			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
-			"revisionTime": "2017-11-28T00:03:15Z"
-		},
-		{
-			"checksumSHA1": "vIJ3Ks0FTwtzyWrLR9hCh3eo0Mw=",
-			"path": "github.com/newrelic/go-agent/internal/cat",
-			"revision": "f5bce3387232559bcbe6a5f8227c4bf508dac1ba",
-			"revisionTime": "2017-11-28T00:03:15Z"
 		},
 		{
 			"checksumSHA1": "mkbupMdy+cF7xyo8xW0A6Bq15k4=",
@@ -91,10 +97,12 @@
 			"versionExact": "master"
 		},
 		{
-			"checksumSHA1": "ySaT8G3I3y4MmnoXOYAAX0rC+p8=",
+			"checksumSHA1": "5fRTP+zI9WQqNzyHbi2qarMGauQ=",
 			"path": "github.com/sirupsen/logrus",
-			"revision": "d682213848ed68c0a260ca37d6dd5ace8423f5ba",
-			"revisionTime": "2017-12-05T20:32:29Z"
+			"revision": "ea8897e79973357ba785ac2533559a6297e83c44",
+			"revisionTime": "2018-05-23T07:42:43Z",
+			"version": "master",
+			"versionExact": "master"
 		},
 		{
 			"checksumSHA1": "X1NTlfcau2XcV6WtAHF6b/DECOA=",
@@ -113,6 +121,14 @@
 			"path": "golang.org/x/sys/windows",
 			"revision": "d5840adf789d732bc8b00f37b26ca956a7cc8e79",
 			"revisionTime": "2017-12-14T14:09:03Z"
+		},
+		{
+			"checksumSHA1": "YKLf0V3VFgeBdotvM/vJ/L5AsxI=",
+			"path": "gopkg.in/h2non/gock.v1",
+			"revision": "4692cba4394f79372bfe85996501ad43db9d82e0",
+			"revisionTime": "2018-06-14T09:05:11Z",
+			"version": "master",
+			"versionExact": "master"
 		}
 	],
 	"rootPath": "github.com/InVisionApp/cbapiclient"

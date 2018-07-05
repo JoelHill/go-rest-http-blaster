@@ -10,18 +10,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"sync"
+	"syscall"
 	"time"
 
-	"github.com/newrelic/go-agent"
+	"github.com/InVisionApp/go-logger"
 	"github.com/opentracing/opentracing-go"
-	"github.com/sirupsen/logrus"
 )
-
-// go:generate counterfeiter -o ./fakes/fake_circuitbreaker_prototype.go . CircuitBreakerPrototype
-// go:generate counterfeiter -o ./fakes/fake_statsd_client_prototype.go . StatsdClientPrototype
-// go:generate counterfeiter -o ./fakes/fake_iclient.go . IClient
 
 const (
 	requestIDHeader      = "Request-ID"
@@ -44,91 +38,7 @@ const (
 // NAME is the name of this library
 const NAME = "cbapiclient"
 
-// CircuitBreakerPrototype defines the circuit breaker Execute function signature
-type CircuitBreakerPrototype interface {
-	Execute(func() (interface{}, error)) (interface{}, error)
-}
-
-// StatsdClientPrototype defines the statsd client functions used in this library
-type StatsdClientPrototype interface {
-	Incr(name string, tags []string, rate float64) error
-	Timing(name string, value time.Duration, tags []string, rate float64) error
-}
-
-// Defaults is a container for setting package level values
-type Defaults struct {
-	// ServiceName is the name of the calling service
-	ServiceName string
-
-	// NewRelicTransactionProviderFunc is a function that
-	// provides the New Relic transaction to be used in the
-	// HTTP Request.  If this function is not set, the client
-	// will create a new New Relic transaction
-	NewRelicTransactionProviderFunc func(ctx context.Context) (newrelic.Transaction, bool)
-
-	// TracerProviderFunc is a function that provides
-	// the opentracing.Tracer for tracing HTTP requests
-	TracerProviderFunc func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
-
-	// ContextLoggerProviderFunc is a function that provides
-	// a logger from the current context.  If this function
-	// is not set, the client will create a new logger for
-	// the Request.
-	ContextLoggerProviderFunc func(ctx context.Context) (*logrus.Entry, bool)
-
-	// RequestIDProviderFunc is a function that provides the
-	// parent Request id used in tracing the caller's Request.
-	// If this function is not set, the client will generate
-	// a new UUID for the Request id.
-	RequestIDProviderFunc func(ctx context.Context) (string, bool)
-
-	// RequestSourceProviderFunc is a function that provides
-	// the Request-Source header
-	RequestSourceProviderFunc func(ctx context.Context) (string, bool)
-
-	// UserAgent is a package-level user agent header used for
-	// each outgoing request
-	UserAgent string
-
-	// StrictREQ014 will cancel any request and return an error if any of the following
-	// headers are missing:
-	// 		Request-ID
-	// 		Request-Source
-	// 		Calling-Service
-	StrictREQ014 bool
-
-	// StatsdRate is the statsd reporting rate
-	StatsdRate float64
-
-	// StatsdSuccessTag is the tag added to the statsd metric when the request succeeds (200 <= status_code < 300)
-	StatsdSuccessTag string
-
-	// StatsdFailureTag is the tag added to the statsd metric when the request fails
-	StatsdFailureTag string
-}
-
-// IClient - interface for the cb api client
-type IClient interface {
-	Delete(ctx context.Context, payload interface{}) (int, error)
-	Duration() time.Duration
-	Do(ctx context.Context, method string, payload interface{}) (int, error)
-	Get(ctx context.Context) (int, error)
-	KeepRawResponse()
-	Post(ctx context.Context, payload interface{}) (int, error)
-	Put(ctx context.Context, payload interface{}) (int, error)
-	Patch(ctx context.Context, payload interface{}) (int, error)
-	RawResponse() []byte
-	SetCircuitBreaker(cb CircuitBreakerPrototype)
-	SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, tags []string)
-	SetContentType(ct string)
-	SetHeader(key string, value string)
-	SetNRTxnName(name string)
-	SetTimeoutMS(timeout time.Duration)
-	StatusCodeIsError() bool
-	WillSaturate(proto interface{})
-	WillSaturateOnError(proto interface{})
-	WillSaturateWithStatusCode(statusCode int, proto interface{})
-}
+// region STRUCT
 
 // Client encapsulates the http Request functionality
 type Client struct {
@@ -142,9 +52,6 @@ type Client struct {
 
 	// endpoint is the destination for the http Request
 	endpoint *url.URL
-
-	// nrTxnName is the explicit New Relic transaction name
-	nrTxnName string
 
 	// customPrototypes is a map of interfaces that
 	// will be saturated when specific response codes
@@ -189,218 +96,42 @@ type Client struct {
 	// flag to set this object in an error state
 	// this will prevent statsd calls if an error
 	// originated within this API
-	preflightError bool
+	internalError bool
+
+	// logger that lives throughout request lifecycle, set in Do()
+	logger log.Logger
+
+	// openTracingSpan gets attached right before request is made
+	openTracingSpan opentracing.Span
+
+	// status code gets tacked on after the request
+	statusCode int
 }
 
-// req014HeaderCheck will check for the presence of required outgoing
-// headers per the InVision REQ014 documentation
-//
-// @see https://invision-engineering.herokuapp.com/requirements/REQ014/index.html
-type req014HeaderCheck struct {
-	requestID      bool
-	requestSource  bool
-	callingService bool
-}
+// endregion
 
-// check to see if REQ014 flags are closed
-func (c req014HeaderCheck) ok() bool {
-	return c.requestID && c.requestSource && c.callingService
-}
-
-var (
-	pkgServiceName               string
-	pkgUserAgent                 string
-	pkgNRTxnProviderFunc         func(ctx context.Context) (newrelic.Transaction, bool)
-	pkgTracerProviderFunc        func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
-	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
-	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
-	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
-	pkgOnce                      sync.Once
-	pkgStrictREQ014              bool
-	pkgStatsdRate                float64
-	pkgStatsdSuccessTag          string
-	pkgStatsdFailureTag          string
-
-	envHTTPMocking = "MOCKING_HTTP"
-)
-
-//
-// Package Level Functions
-// ========================================================
-//
-
-// ensurePackageVariables makes sure that the package level
-// variables are set.  This function runs once, then no-ops
-// on subsequent calls
-func ensurePackageVariables() {
-	pkgOnce.Do(func() {
-
-		// we need something to be set as a service name
-		if pkgServiceName == "" {
-			// if caller didnt set it, look in env
-			pkgServiceName = os.Getenv("SERVICE_NAME")
-			if pkgServiceName == "" {
-				// if not in env, just use the hostname
-				pkgServiceName = os.Getenv("HOSTNAME")
-			}
-		}
-
-		// user agent is service name + hostname
-		if pkgUserAgent == "" {
-			if pkgServiceName == os.Getenv("HOSTNAME") {
-				pkgUserAgent = pkgServiceName
-			} else {
-				pkgUserAgent = fmt.Sprintf("%s-%s", pkgServiceName, os.Getenv("HOSTNAME"))
-			}
-		}
-
-		// make sure new relic transaction provider exists
-		if pkgNRTxnProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("no NewRelicTransactionProviderFunc set")
-			pkgNRTxnProviderFunc = func(ctx context.Context) (newrelic.Transaction, bool) {
-				// the newrelic StartSegment function will start a new transaction
-				return nil, false
-			}
-		}
-
-		// make sure the context logger provider exists
-		if pkgCtxLoggerProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be " +
-					"used for each request")
-			pkgCtxLoggerProviderFunc = func(ctx context.Context) (*logrus.Entry, bool) {
-				return logrus.NewEntry(logrus.New()), true
-			}
-		}
-
-		// make sure the Request id provider exists
-		if pkgRequestIDProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("cbapiclient: No RequestIDProviderFunc default set.  The Request-ID header will " +
-					"be absent in each request unless set manually")
-			pkgRequestIDProviderFunc = func(ctx context.Context) (string, bool) {
-				return "", true
-			}
-		}
-
-		// make sure the request source provider exists
-		if pkgRequestSourceProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("cbapiclient: No RequestSourceProviderFunc default set.  The Request-Source header " +
-					"will be absent in each request unless set manually")
-			pkgRequestSourceProviderFunc = func(ctx context.Context) (string, bool) {
-				return "", false
-			}
-		}
-
-		// ensure statsd success and failure tags exist
-		if pkgStatsdSuccessTag == "" {
-			logrus.WithField("type", NAME).Info("no statsd success tag provided.  using processed:success.")
-			pkgStatsdSuccessTag = "processed:success"
-		}
-
-		if pkgStatsdFailureTag == "" {
-			logrus.WithField("type", NAME).Info("no statsd failure tag provided.  using processed:failure.")
-			pkgStatsdFailureTag = "processed:failure"
-		}
-	})
-}
-
-// SetDefaults will apply package-level default values to
-// be used on all requests
-func SetDefaults(defaults *Defaults) {
-	pkgServiceName = defaults.ServiceName
-	pkgNRTxnProviderFunc = defaults.NewRelicTransactionProviderFunc
-	pkgCtxLoggerProviderFunc = defaults.ContextLoggerProviderFunc
-	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
-	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc
-	pkgUserAgent = defaults.UserAgent
-	pkgStrictREQ014 = defaults.StrictREQ014
-	pkgStatsdRate = defaults.StatsdRate
-	pkgStatsdSuccessTag = defaults.StatsdSuccessTag
-	pkgStatsdFailureTag = defaults.StatsdFailureTag
-	pkgTracerProviderFunc = defaults.TracerProviderFunc
-}
-
-// this creates a http client with sensible defaults
-func newHTTPClient() *http.Client {
-	// all http mocking libraries can override the default http client,
-	// but many cannot override clients that have been tuned with custom
-	// transports.  If this env var is set, we return the standard
-	// http client.
-	if os.Getenv(envHTTPMocking) != "" {
-		return http.DefaultClient
-	}
-
-	client := &http.Client{
-		Timeout: requestTimeout,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   sockTimeout,
-				DualStack: true,
-				KeepAlive: keepAlive,
-			}).DialContext,
-			MaxIdleConnsPerHost:   maxIdleConnsPerHost,
-			MaxIdleConns:          maxIdleConns,
-			IdleConnTimeout:       idleTimeout,
-			TLSHandshakeTimeout:   tlsTimeout,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
-	client.Timeout = requestTimeout
-
-	return client
-}
-
-// NewClient will initialize and return a new client with a
-// request and endpoint.  The client's content type defaults
-// to application/json
-func NewClient(uri string) (*Client, error) {
-
-	ensurePackageVariables()
-
-	ep, err := url.Parse(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{
-		endpoint: ep,
-		method:   http.MethodGet,
-		client:   newHTTPClient(),
-		headers: map[string]string{
-			userAgentHeader:      pkgUserAgent,
-			contentTypeHeader:    jsonType,
-			callingServiceHeader: pkgServiceName,
-			acceptHeader:         jsonType,
-		},
-	}
-
-	return c, nil
-}
-
-//
-// Client Functions
-// ========================================================
-//
+// region UNEXPORTED FUNCS
 
 // applyContextDependentHeaders will apply headers right before
 // the request is launched
 func (c *Client) applyContextDependentHeaders(ctx context.Context) {
-	if requestID, ok := pkgRequestIDProviderFunc(ctx); ok {
-		c.headers[requestIDHeader] = requestID
+	if pkgRequestIDProviderFunc != nil {
+		if requestID, ok := pkgRequestIDProviderFunc(ctx); ok {
+			c.headers[requestIDHeader] = requestID
+		}
 	}
 
-	if requestSource, ok := pkgRequestSourceProviderFunc(ctx); ok {
-		c.headers[requestSourceHeader] = requestSource
+	if pkgRequestSourceProviderFunc != nil {
+		if requestSource, ok := pkgRequestSourceProviderFunc(ctx); ok {
+			c.headers[requestSourceHeader] = requestSource
+		}
 	}
 }
 
 // reports the status code from the response
-func (c *Client) statsdReportResponse(statusCode int) {
-	if c.statsdClient != nil && !c.preflightError {
-		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", statusCode))
+func (c *Client) statsdReportResponse() {
+	if c.statsdClient != nil {
+		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", c.statusCode))
 		if c.responseIsError {
 			tags = append(tags, pkgStatsdFailureTag)
 		} else {
@@ -412,50 +143,48 @@ func (c *Client) statsdReportResponse(statusCode int) {
 
 // reports the duration of the request
 func (c *Client) statsdReportDuration() {
-	if c.statsdClient != nil && !c.preflightError {
-		var tags []string
+	if c.statsdClient != nil {
+		tags := append(c.statsdTags, fmt.Sprintf("status_code:%d", c.statusCode))
 		if c.responseIsError {
-			tags = append(c.statsdTags, pkgStatsdFailureTag)
+			tags = append(tags, pkgStatsdFailureTag)
 		} else {
-			tags = append(c.statsdTags, pkgStatsdSuccessTag)
+			tags = append(tags, pkgStatsdSuccessTag)
 		}
 		c.statsdClient.Timing(c.statsdStat, c.duration, tags, pkgStatsdRate)
 	}
 }
 
-// doInternal will perform the actual request.  This function
-// is either called from within a circuit breaker, or directly
-// from Do.
-func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, error) {
-
-	// get logger
-	logger, canLog := pkgCtxLoggerProviderFunc(ctx)
-
-	// get new relic transaction provider, if it exists
-	nrtx, nrtxOK := pkgNRTxnProviderFunc(ctx)
-
-	// new relic capture of the function timing
-	if nrtxOK {
-		defer newrelic.StartSegment(nrtx, "doInternal()").End()
+// make sure the request conforms to invision request tracing policy
+func (c *Client) conformsToReq014(request *http.Request) error {
+	// add all headers, and also prepare the request
+	// tracing headers to be validated
+	check := req014HeaderCheck{}
+	for k, v := range c.headers {
+		request.Header.Set(k, v)
+		if v != "" {
+			switch k {
+			case requestIDHeader:
+				check.requestIDOK = true
+			case requestSourceHeader:
+				check.requestSourceOK = true
+			case callingServiceHeader:
+				check.callingServiceOK = true
+			}
+		}
 	}
 
-	// set headers that depend on context values
-	c.applyContextDependentHeaders(ctx)
+	// if we are strictly enforcing request tracing
+	if pkgStrictREQ014 && !check.ok() {
+		return errors.New("request tracing header requirements check failed")
+	}
 
-	// create a status code and a pointer to it....use this throughout the request
-	statusCode := http.StatusInternalServerError
-	statusCodePtr := &statusCode
+	return nil
+}
 
-	// start the clock and report the duration when this function exits
-	defer func(c *Client, begin time.Time, scPtr *int) {
-		c.duration = time.Now().Sub(begin)
-		c.statsdReportDuration()
-		c.statsdReportResponse(*scPtr)
-	}(c, time.Now(), statusCodePtr)
-
-	// variables for the next block
+// marshal/serialize the outgoing payload if it exists
+func (c *Client) processOutgoingPayload(payload interface{}) ([]byte, error) {
 	var (
-		err          error
+		payloadErr   error
 		payloadBytes []byte
 	)
 
@@ -465,16 +194,9 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		// unless changed explicitly, this will be a json
 		// request
 		if c.headers[contentTypeHeader] == jsonType {
-			payloadBytes, err = json.Marshal(payload)
-			if err != nil {
-				if canLog {
-					logger.WithFields(logrus.Fields{
-						"error_message": err.Error(),
-						"type":          NAME,
-					}).Error("request failed")
-				}
-				c.preflightError = true
-				return http.StatusInternalServerError, err
+			payloadBytes, payloadErr = json.Marshal(payload)
+			if payloadErr != nil {
+				return nil, payloadErr
 			}
 		} else {
 			// caller has supplied content-type.  it must be convertible to byte slice
@@ -485,14 +207,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 				payloadBytes = []byte(payload.(string))
 			default:
 				errBS := errors.New("the payload cannot be converted to a byte slice")
-				if canLog {
-					logger.WithFields(logrus.Fields{
-						"error_message": errBS.Error(),
-						"type":          NAME,
-					}).Error("request failed")
-				}
-				c.preflightError = true
-				return http.StatusInternalServerError, errBS
+				return nil, errBS
 			}
 		}
 
@@ -500,150 +215,33 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		c.headers[contentLengthHeader] = fmt.Sprintf("%d", len(payloadBytes))
 	}
 
-	if canLog {
-		logger.WithField("type", "cbapiclient").
-			Debugf("launching %s request to %s", c.method, c.endpoint.Host)
-	}
+	return payloadBytes, nil
+}
 
-	// create the internal HTTP request
-	request, err := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
-
+// begin tracking request
+func (c *Client) immediatePreflight(ctx context.Context, request *http.Request) {
 	// if tracing is enabled, wrap the request with the tracing provider
-	var span opentracing.Span
 	if pkgTracerProviderFunc != nil {
-		// The span name needs to be sufficiently generic to avoid a grouping issue in Lightstep (breaking their search).
+		var span opentracing.Span
+		// The openTracingSpan name needs to be sufficiently generic to avoid a grouping issue in Lightstep (breaking their search).
 		// It should not be the full URL, URI or Path, as that often inclues IDs.
-		// Note that 'url' is recorded, but as a tag on the span, from https://github.com/InVisionApp/opentracing-go-helpers
+		// Note that 'url' is recorded, but as a tag on the openTracingSpan, from https://github.com/InVisionApp/opentracing-go-helpers
 		request, span = pkgTracerProviderFunc(ctx, fmt.Sprintf("%s %s", c.method, c.endpoint.Host), request)
-		defer span.Finish()
+		c.openTracingSpan = span
 	}
+}
 
-	if err != nil {
-		if canLog {
-			logger.WithFields(logrus.Fields{
-				"error_message": err.Error(),
-				"type":          NAME,
-			}).Error("request failed")
-		}
-		c.preflightError = true
-		return http.StatusInternalServerError, err
-	}
-
-	// add all headers, and also prepare the request
-	// tracing headers to be validated
-	check := req014HeaderCheck{}
-	for k, v := range c.headers {
-		request.Header.Set(k, v)
-		switch k {
-		case requestIDHeader:
-			check.requestID = true
-		case requestSourceHeader:
-			check.requestSource = true
-		case callingServiceHeader:
-			check.callingService = true
-		}
-	}
-
-	// if we are strictly enforcing request tracing
-	if pkgStrictREQ014 && !check.ok() {
-		errREQ14 := errors.New("request tracing header requirements check failed")
-		if canLog {
-			logger.WithFields(logrus.Fields{
-				"error_message": errREQ14.Error(),
-				"type":          NAME,
-			}).Error("request failed")
-		}
-		c.preflightError = true
-		return http.StatusInternalServerError, errREQ14
-	}
-
-	// create new relic external segment and start it
-	var nrExternalSegment newrelic.ExternalSegment
-	if nrtxOK {
-		// StartExternalSegment will create a new New Relic external segment
-		// measurement for the request.  It will reuse a New Relic transaction
-		// provided in SetDefaults.  Otherwise it will start a new transaction.
-		// get new relic transaction from context
-		nrExternalSegment = newrelic.StartExternalSegment(nrtx, request)
-	}
-
-	// RUN IT
-	// --------------------------------------------
-	response, responseErr := c.client.Do(request)
-	// --------------------------------------------
-
-	// end the external segment timing
-	if nrtxOK && nrExternalSegment.Request != nil {
-		nrExternalSegment.End()
-	}
-
-	// get status code
-	if response != nil {
-		statusCode = response.StatusCode
-	}
-
-	// request error
-	if responseErr != nil {
-		if canLog {
-			// if this is a timeout, make note of it
-			if timeoutErr, ok := responseErr.(net.Error); ok && timeoutErr.Timeout() {
-				c.statsdTags = append(c.statsdTags, "timeout")
-				logger.WithFields(logrus.Fields{
-					"error_message": fmt.Sprintf("timed out calling %s: %s-%s", c.method, c.endpoint.Host, c.endpoint.Path),
-					"type":          fmt.Sprintf("%s_TIMEOUT", NAME),
-				}).Error("request failed")
-			} else {
-				logger.WithFields(logrus.Fields{
-					"error_message": responseErr.Error(),
-					"type":          NAME,
-				}).Error("request failed")
-			}
-		}
-		return http.StatusInternalServerError, responseErr
-	}
-	// defer response body reader close
-	defer func(resp *http.Response, logger *logrus.Entry) {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			if canLog {
-				logger.WithFields(logrus.Fields{
-					"error_message": closeErr.Error(),
-					"type":          NAME,
-				}).Error("unable to close response body")
-			}
-		}
-	}(response, logger)
-
-	// get response body
-	body, readErr := ioutil.ReadAll(response.Body)
-	if readErr != nil {
-		if canLog {
-			logger.WithFields(logrus.Fields{
-				"error_message": readErr.Error(),
-				"type":          NAME,
-			}).Error("request failed")
-		}
-		return http.StatusInternalServerError, readErr
-	}
-
-	// only keep the raw response if explicitly requested
-	if c.keepRawResponse {
-		c.rawresponse = body
-	}
-
-	// check if this is an error
-	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
-		c.responseIsError = true
-	}
-
+// process response
+func (c *Client) processResponseData(payload []byte, contentType string) error {
 	// if the response has a body, handle it
-	if len(body) > 0 {
+	if len(payload) > 0 {
 
 		// the thing we are about to potentially unmarshal into
 		var unmarshalTo interface{}
 
 		// if there is a custom response for this specific status code
-		if c.customPrototypes[statusCode] != nil {
-			unmarshalTo = c.customPrototypes[statusCode]
+		if c.customPrototypes[c.statusCode] != nil {
+			unmarshalTo = c.customPrototypes[c.statusCode]
 		} else if c.responseIsError {
 			// request returned error code
 			unmarshalTo = c.errorPrototype
@@ -654,46 +252,190 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 
 		// if there is something that can be unmarshalled into
 		if unmarshalTo != nil {
-			if err = json.Unmarshal(body, unmarshalTo); err != nil {
-				if canLog {
-					logger.WithFields(logrus.Fields{
-						"error_message": err.Error(),
-						"type":          NAME,
-					}).Error("request failed")
+			if contentType == jsonType {
+				decoder := json.NewDecoder(bytes.NewReader(payload))
+				if decodeErr := decoder.Decode(unmarshalTo); decodeErr != nil {
+					return decodeErr
 				}
-				return http.StatusInternalServerError, err
+			} else {
+				// This is not the expected result, so it should be logged as a warning.
+				// Any non-json responses should be accessed via the raw bytes of the client.
+				// Realistically the only thing that should make its way into this block is
+				// a non-json error response.
+				c.rawresponse = payload
+				c.logger.WithFields(map[string]interface{}{
+					"type": NAME,
+				}).Warn("cbapiclient: received a non-json response where a json type was expected")
+
+				c.statusCode = http.StatusUnprocessableEntity
 			}
 		}
 	}
 
-	if canLog {
-		logger.WithField("type", NAME).
-			Debugf("%s request to %s returned code %d", c.method, c.endpoint.Host, statusCode)
+	return nil
+}
+
+// close tracking
+func (c *Client) cleanup() {
+	if !c.internalError {
+		c.statsdReportResponse()
+		c.statsdReportDuration()
+		if c.openTracingSpan != nil {
+			c.openTracingSpan.Finish()
+		}
+	}
+}
+
+// the request cannot be launched
+func (c *Client) failBeforeRequest(err error) (int, error) {
+	c.logger.WithFields(map[string]interface{}{
+		"error_message": err.Error(),
+		"type":          NAME,
+	}).Error("request failed")
+	c.statusCode = http.StatusInternalServerError
+	c.internalError = true
+	return c.statusCode, err
+}
+
+// the request happened, but was an error
+func (c *Client) failAfterRequest(err error) (int, error) {
+	c.logger.WithFields(map[string]interface{}{
+		"error_message": err.Error(),
+		"type":          NAME,
+	}).Error("request failed")
+	c.statusCode = http.StatusInternalServerError
+	return c.statusCode, err
+}
+
+// doInternal will perform the actual request.  This function
+// is either called from within a circuit breaker, or directly
+// from Do.
+func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, error) {
+
+	// set headers that depend on context values
+	c.applyContextDependentHeaders(ctx)
+
+	// start the clock and report the duration when this function exits
+	defer func(c *Client, begin time.Time) {
+		c.duration = time.Now().Sub(begin)
+		c.cleanup()
+	}(c, time.Now())
+
+	// process outgoing payload
+	payloadBytes, payloadErr := c.processOutgoingPayload(payload)
+	if payloadErr != nil {
+		return c.failBeforeRequest(payloadErr)
 	}
 
-	return statusCode, nil
+	// create the internal HTTP request
+	request, createRequestErr := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
+	if createRequestErr != nil {
+		return c.failBeforeRequest(createRequestErr)
+	}
+
+	// make sure that request conforms to REQ014 if its required
+	if req014Err := c.conformsToReq014(request); req014Err != nil {
+		return c.failBeforeRequest(req014Err)
+	}
+
+	c.logger.WithFields(map[string]interface{}{
+		"type": NAME,
+	}).Debugf("launching %s request to %s", c.method, c.endpoint.Host)
+
+	// RUN IT
+	c.immediatePreflight(ctx, request)
+	// --------------------------------------------
+	// --------------------------------------------
+	response, responseErr := c.client.Do(request)
+	// --------------------------------------------
+	// --------------------------------------------
+
+	// request error
+	if responseErr != nil {
+		switch responseErr.(type) {
+		case net.Error:
+			if responseErr.(net.Error).Timeout() {
+				c.statsdTags = append(c.statsdTags, "timeout")
+			}
+		case *net.OpError:
+			if responseErr.(*net.OpError).Op == "read" {
+				c.statsdTags = append(c.statsdTags, "connection_refused")
+			} else if responseErr.(*net.OpError).Op == "dial" {
+				c.statsdTags = append(c.statsdTags, "unknown_host")
+			}
+		case syscall.Errno:
+			if responseErr.(syscall.Errno) == syscall.ECONNREFUSED {
+				c.statsdTags = append(c.statsdTags, "connection_refused")
+			}
+		}
+		// if this is a timeout, make note of it
+		if timeoutErr, ok := responseErr.(net.Error); ok && timeoutErr.Timeout() {
+			c.statsdTags = append(c.statsdTags, "timeout")
+		}
+
+		c.statusCode = http.StatusInternalServerError
+		return c.failAfterRequest(responseErr)
+	}
+
+	// set status code and error response flag
+	c.statusCode = response.StatusCode
+	c.responseIsError = c.statusCode < http.StatusOK || c.statusCode >= http.StatusMultipleChoices
+
+	// defer response body reader close
+	defer closeResponse(response, c.logger)
+
+	// get response body
+	// ReadAll is called previously and would throw an error in http.Client.Do
+	body, _ := ioutil.ReadAll(response.Body)
+
+	// only keep the raw response if explicitly requested
+	if c.keepRawResponse {
+		c.rawresponse = body
+	}
+
+	if processResponseErr := c.processResponseData(body, response.Header.Get(contentTypeHeader)); processResponseErr != nil {
+		return c.failAfterRequest(processResponseErr)
+	}
+
+	c.logger.WithFields(map[string]interface{}{
+		"type": NAME,
+	}).Debugf("%s request to %s returned code %d", c.method, c.endpoint.Host, c.statusCode)
+
+	return c.statusCode, nil
 }
+
+// close the http response
+func closeResponse(resp *http.Response, logger log.Logger) {
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		logger.WithFields(map[string]interface{}{
+			"error_message": closeErr.Error(),
+			"type":          NAME,
+		}).Error("unable to close response body")
+	}
+}
+
+// endregion
+
+// region EXPORTED FUNCS
 
 // Do will prepare the request and either run it directly
 // or from within a circuit breaker
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error) {
-	nrtx, nrtxOK := pkgNRTxnProviderFunc(ctx)
+	if c.logger == nil {
+		// TODO: remove this when logrus dependency is removed
+		c.logger = logrusShim(ctx)
 
-	// new relic capture of the function timing
-	if nrtxOK {
-		defer newrelic.StartSegment(nrtx, "Do()").End()
+		//c.logger = log.NewNoop()
 	}
 
 	if c.endpoint == nil {
 		err := errors.New("endpoint for request not set")
-		logger, canLog := pkgCtxLoggerProviderFunc(ctx)
-		if canLog {
-			logger.WithFields(logrus.Fields{
-				"error_message": err.Error(),
-				"type":          NAME,
-			}).Error("config error")
-		}
-		c.preflightError = true
+		c.logger.WithFields(map[string]interface{}{
+			"error_message": err.Error(),
+			"type":          NAME,
+		}).Error("config error")
+		c.internalError = true
+
 		return http.StatusInternalServerError, err
 	}
 
@@ -709,13 +451,10 @@ func (c *Client) Do(ctx context.Context, method string, payload interface{}) (in
 	// the circuit breaker may be open or half open, which
 	// could result in a nil value here
 	if sc == nil {
-		logger, canLog := pkgCtxLoggerProviderFunc(ctx)
-		if canLog {
-			logger.WithFields(logrus.Fields{
-				"error_message": "circuit breaker open or half-open",
-				"type":          NAME,
-			}).Warn("request blocked")
-		}
+		c.logger.WithFields(map[string]interface{}{
+			"error_message": "circuit breaker open or half-open",
+			"type":          NAME,
+		}).Warn("request blocked")
 		sc = http.StatusFailedDependency
 	}
 
@@ -731,11 +470,7 @@ func (c *Client) KeepRawResponse() {
 // RawResponse is a shortcut to access the raw bytes returned
 // in the http response
 func (c *Client) RawResponse() []byte {
-	if c.keepRawResponse {
-		return c.rawresponse
-	}
-
-	return []byte{}
+	return c.rawresponse
 }
 
 // SetTimeoutMS sets the maximum number of milliseconds allowed for
@@ -746,6 +481,12 @@ func (c *Client) SetTimeoutMS(timeout time.Duration) {
 	}
 
 	c.client.Timeout = timeout * time.Millisecond
+}
+
+// SetLogger will set the client's internal logger.
+// If no logger is set, a no-op logger will be used
+func (c *Client) SetLogger(logger log.Logger) {
+	c.logger = logger
 }
 
 // StatusCodeIsError is a shortcut to determine if the status code is
@@ -805,11 +546,6 @@ func (c *Client) SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, 
 	}
 
 	c.statsdStat = fmt.Sprintf("%s.%s", NAME, stat)
-}
-
-// SetNRTxnName will set the New Relic transaction name
-func (c *Client) SetNRTxnName(name string) {
-	c.nrTxnName = name
 }
 
 // SetContentType will set the request content type.  By default, all
@@ -880,3 +616,5 @@ func (c *Client) Delete(ctx context.Context, payload interface{}) (int, error) {
 
 	return c.Do(ctx, http.MethodDelete, payload)
 }
+
+// endregion
