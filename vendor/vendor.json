@@ -11,14 +11,6 @@
 			"versionExact": "master"
 		},
 		{
-			"checksumSHA1": "dTRagpjBwKUnhmISjwFWtwxi2MI=",
-			"path": "github.com/InVisionApp/go-logger/shims/logrus",
-			"revision": "578aa5e3a28ab647e87f86ce90fb58ac5690e60d",
-			"revisionTime": "2018-04-24T14:44:58Z",
-			"version": "master",
-			"versionExact": "master"
-		},
-		{
 			"checksumSHA1": "e1VnKa73D0KdBMbw4kzngW4ho+M=",
 			"path": "github.com/InVisionApp/go-logger/shims/testlog",
 			"revision": "578aa5e3a28ab647e87f86ce90fb58ac5690e60d",
@@ -93,14 +85,6 @@
 			"path": "github.com/opentracing/opentracing-go/log",
 			"revision": "6c572c00d1830223701e155de97408483dfcd14a",
 			"revisionTime": "2018-04-12T18:08:40Z",
-			"version": "master",
-			"versionExact": "master"
-		},
-		{
-			"checksumSHA1": "5fRTP+zI9WQqNzyHbi2qarMGauQ=",
-			"path": "github.com/sirupsen/logrus",
-			"revision": "ea8897e79973357ba785ac2533559a6297e83c44",
-			"revisionTime": "2018-05-23T07:42:43Z",
 			"version": "master",
 			"versionExact": "master"
 		},
