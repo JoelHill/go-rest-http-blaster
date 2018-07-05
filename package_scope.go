@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/opentracing/opentracing-go"
-	"github.com/sirupsen/logrus"
 )
 
 // Defaults is a container for setting package level values
@@ -23,17 +22,8 @@ type Defaults struct {
 	// the opentracing.Tracer for tracing HTTP requests
 	TracerProviderFunc func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
 
-	// ContextLoggerProviderFunc is a function that provides
-	// a logger from the current context.  If this function
-	// is not set, the client will create a new logger for
-	// the Request.
-	// Deprecated: This function will return a generic Logger interface (defined in github.com/InVisionApp/go-logger) instead of a vendor-specific implementation
-	ContextLoggerProviderFunc func(ctx context.Context) (*logrus.Entry, bool)
-
 	// RequestIDProviderFunc is a function that provides the
 	// parent Request id used in tracing the caller's Request.
-	// If this function is not set, the client will generate
-	// a new UUID for the Request id.
 	RequestIDProviderFunc func(ctx context.Context) (string, bool)
 
 	// RequestSourceProviderFunc is a function that provides
@@ -53,26 +43,17 @@ type Defaults struct {
 
 	// StatsdRate is the statsd reporting rate
 	StatsdRate float64
-
-	// StatsdSuccessTag is the tag added to the statsd metric when the request succeeds (200 <= status_code < 300)
-	StatsdSuccessTag string
-
-	// StatsdFailureTag is the tag added to the statsd metric when the request fails
-	StatsdFailureTag string
 }
 
 var (
 	pkgServiceName               string
 	pkgUserAgent                 string
 	pkgTracerProviderFunc        func(ctx context.Context, operationName string, r *http.Request) (*http.Request, opentracing.Span)
-	pkgCtxLoggerProviderFunc     func(ctx context.Context) (*logrus.Entry, bool)
 	pkgRequestIDProviderFunc     func(cxt context.Context) (string, bool)
 	pkgRequestSourceProviderFunc func(cxt context.Context) (string, bool)
 	pkgOnce                      sync.Once
 	pkgStrictREQ014              bool
 	pkgStatsdRate                float64
-	pkgStatsdSuccessTag          string
-	pkgStatsdFailureTag          string
 
 	envHTTPMocking = "MOCKING_HTTP"
 )
@@ -106,27 +87,6 @@ func ensurePackageVariables() {
 				pkgUserAgent = fmt.Sprintf("%s-%s", pkgServiceName, os.Getenv("HOSTNAME"))
 			}
 		}
-
-		// make sure the context logger provider exists
-		if pkgCtxLoggerProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be " +
-					"used for each request")
-			pkgCtxLoggerProviderFunc = func(ctx context.Context) (*logrus.Entry, bool) {
-				return logrus.NewEntry(logrus.New()), true
-			}
-		}
-
-		// ensure statsd success and failure tags exist
-		if pkgStatsdSuccessTag == "" {
-			logrus.WithField("type", NAME).Info("cbapiclient: no statsd success tag provided.  using processed:success.")
-			pkgStatsdSuccessTag = "processed:success"
-		}
-
-		if pkgStatsdFailureTag == "" {
-			logrus.WithField("type", NAME).Info("cbapiclient: no statsd failure tag provided.  using processed:failure.")
-			pkgStatsdFailureTag = "processed:failure"
-		}
 	})
 }
 
@@ -134,14 +94,11 @@ func ensurePackageVariables() {
 // be used on all requests
 func SetDefaults(defaults *Defaults) {
 	pkgServiceName = defaults.ServiceName
-	pkgCtxLoggerProviderFunc = defaults.ContextLoggerProviderFunc
 	pkgRequestIDProviderFunc = defaults.RequestIDProviderFunc
 	pkgRequestSourceProviderFunc = defaults.RequestSourceProviderFunc
 	pkgUserAgent = defaults.UserAgent
 	pkgStrictREQ014 = defaults.StrictREQ014
 	pkgStatsdRate = defaults.StatsdRate
-	pkgStatsdSuccessTag = defaults.StatsdSuccessTag
-	pkgStatsdFailureTag = defaults.StatsdFailureTag
 	pkgTracerProviderFunc = defaults.TracerProviderFunc
 }
 
@@ -177,6 +134,7 @@ func newHTTPClient() *http.Client {
 // NewClient will initialize and return a new client with a
 // request and endpoint.  The client's content type defaults
 // to application/json
+// Deprecated: Use New(opts ClientOptions) instead
 func NewClient(uri string) (*Client, error) {
 
 	ensurePackageVariables()
@@ -199,4 +157,62 @@ func NewClient(uri string) (*Client, error) {
 	}
 
 	return c, nil
+}
+
+func New(opts ClientOptions) (*Client, error) {
+	ensurePackageVariables()
+
+	ep, err := url.ParseRequestURI(opts.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &Client{
+		endpoint: ep,
+		method:   http.MethodGet,
+		client:   newHTTPClient(),
+		headers: map[string]string{
+			userAgentHeader:      pkgUserAgent,
+			contentTypeHeader:    jsonType,
+			callingServiceHeader: pkgServiceName,
+			acceptHeader:         jsonType,
+		},
+	}
+
+	if opts.Headers != nil {
+		for k, v := range opts.Headers {
+			c.headers[k] = v
+		}
+	}
+	c.routeMask = opts.RouteMask
+	c.calledService = opts.CalledService
+	c.prototype = opts.WillSaturate
+	c.errorPrototype = opts.WillSaturateOnError
+	c.customPrototypes = opts.WillSaturateWithStatusCode
+	if opts.TimeoutMS > 0 {
+		c.client.Timeout = time.Duration(opts.TimeoutMS) * time.Millisecond
+	}
+	c.cb = opts.CircuitBreaker
+	c.keepRawResponse = opts.KeepRawResponse
+	c.logger = opts.Logger
+
+	return c, nil
+}
+
+// get a response type string for a specific status code
+func responseTypeForStatusCode(statusCode int) string {
+	switch {
+	case statusCode >= 500:
+		return "5xx"
+	case statusCode >= 400:
+		return "4xx"
+	case statusCode >= 300:
+		return "3xx"
+	case statusCode >= 200:
+		return "2xx"
+	case statusCode >= 100:
+		return "1xx"
+	default:
+		return "unknown"
+	}
 }

@@ -32,14 +32,11 @@ var _ = Describe("PackageScope", func() {
 	BeforeEach(func() {
 		// zero all package vars
 		pkgServiceName = ""
-		pkgCtxLoggerProviderFunc = nil
 		pkgRequestIDProviderFunc = nil
 		pkgRequestSourceProviderFunc = nil
 		pkgUserAgent = ""
 		pkgStrictREQ014 = false
 		pkgStatsdRate = 0
-		pkgStatsdSuccessTag = ""
-		pkgStatsdFailureTag = ""
 		pkgTracerProviderFunc = nil
 
 		ctx = context.Background()
@@ -66,10 +63,7 @@ var _ = Describe("PackageScope", func() {
 		// defaults struct
 		defaults = &Defaults{
 			ServiceName:               "unit-test",
-			ContextLoggerProviderFunc: contextLoggerProviderFunc,
 			StatsdRate:                1,
-			StatsdFailureTag:          "failed",
-			StatsdSuccessTag:          "success",
 			StrictREQ014:              true,
 			UserAgent:                 "unit-test",
 			RequestIDProviderFunc:     requestIDProviderFunc,
@@ -90,22 +84,8 @@ var _ = Describe("PackageScope", func() {
 			It("sets service name", func() {
 				Expect(pkgServiceName).To(Equal("unit-test"))
 			})
-			It("sets context log provider", func() {
-				Expect(pkgCtxLoggerProviderFunc).ToNot(BeNil())
-
-				By("testing context log provider")
-				logger, ok := pkgCtxLoggerProviderFunc(ctx)
-				Expect(logger).ToNot(BeNil())
-				Expect(ok).To(BeTrue())
-			})
 			It("sets statsd rate", func() {
 				Expect(pkgStatsdRate).To(Equal(float64(1)))
-			})
-			It("sets statsd failure flag", func() {
-				Expect(pkgStatsdFailureTag).To(Equal("failed"))
-			})
-			It("sets statsd success flag", func() {
-				Expect(pkgStatsdSuccessTag).To(Equal("success"))
 			})
 			It("sets req014 to true", func() {
 				Expect(pkgStrictREQ014).To(BeTrue())
@@ -147,26 +127,6 @@ var _ = Describe("PackageScope", func() {
 	var _ = Describe("ensure package variables", func() {
 		BeforeEach(func() {
 			pkgOnce = sync.Once{}
-		})
-		Context("context logger", func() {
-			BeforeEach(func() {
-				logrus.SetOutput(logBuffer)
-				defaults.ContextLoggerProviderFunc = nil
-				SetDefaults(defaults)
-				ensurePackageVariables()
-			})
-			AfterEach(func() {
-				logrus.SetOutput(os.Stderr)
-			})
-			It("will warn about missing context logger provider", func() {
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("cbapiclient: No ContextLoggerProviderFunc default set.  A new logger will be used for each request"))
-				Expect(pkgCtxLoggerProviderFunc).ToNot(BeNil())
-
-				By("testing default context logger provider")
-				logger, ok := pkgCtxLoggerProviderFunc(ctx)
-				Expect(logger).ToNot(BeNil())
-				Expect(ok).To(BeTrue())
-			})
 		})
 		Context("service name", func() {
 			BeforeEach(func() {
@@ -210,38 +170,6 @@ var _ = Describe("PackageScope", func() {
 			})
 			AfterEach(func() {
 				logrus.SetOutput(os.Stderr)
-			})
-		})
-		Context("statsd failure tag", func() {
-			BeforeEach(func() {
-				pkgStatsdFailureTag = ""
-				logrus.SetOutput(logBuffer)
-				defaults.StatsdFailureTag = ""
-				SetDefaults(defaults)
-				ensurePackageVariables()
-			})
-			AfterEach(func() {
-				logrus.SetOutput(os.Stderr)
-			})
-			It("will report about using default statsd failure tag", func() {
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("cbapiclient: no statsd failure tag provided.  using processed:failure."))
-				Expect(pkgStatsdFailureTag).To(Equal("processed:failure"))
-			})
-		})
-		Context("statsd success tag", func() {
-			BeforeEach(func() {
-				pkgStatsdSuccessTag = ""
-				logrus.SetOutput(logBuffer)
-				defaults.StatsdSuccessTag = ""
-				SetDefaults(defaults)
-				ensurePackageVariables()
-			})
-			AfterEach(func() {
-				logrus.SetOutput(os.Stderr)
-			})
-			It("will report about using default statsd success tag", func() {
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("cbapiclient: no statsd success tag provided.  using processed:success."))
-				Expect(pkgStatsdSuccessTag).To(Equal("processed:success"))
 			})
 		})
 	})
