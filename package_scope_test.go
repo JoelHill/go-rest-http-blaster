@@ -212,46 +212,6 @@ var _ = Describe("PackageScope", func() {
 				logrus.SetOutput(os.Stderr)
 			})
 		})
-		Context("request id", func() {
-			BeforeEach(func() {
-				logrus.SetOutput(logBuffer)
-				defaults.RequestIDProviderFunc = nil
-				SetDefaults(defaults)
-				ensurePackageVariables()
-			})
-			AfterEach(func() {
-				logrus.SetOutput(os.Stderr)
-			})
-			It("will warn about missing request id provider", func() {
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("cbapiclient: No RequestIDProviderFunc default set.  The Request-ID header will be absent in each request unless set manually"))
-				Expect(pkgRequestIDProviderFunc).ToNot(BeNil())
-
-				By("testing request id provider")
-				requestID, ok := pkgRequestIDProviderFunc(ctx)
-				Expect(requestID).To(Equal(""))
-				Expect(ok).To(BeTrue())
-			})
-		})
-		Context("request source", func() {
-			BeforeEach(func() {
-				logrus.SetOutput(logBuffer)
-				defaults.RequestSourceProviderFunc = nil
-				SetDefaults(defaults)
-				ensurePackageVariables()
-			})
-			AfterEach(func() {
-				logrus.SetOutput(os.Stderr)
-			})
-			It("will warn about missing request source provider", func() {
-				Expect(string(logBuffer.Bytes())).To(ContainSubstring("cbapiclient: No RequestSourceProviderFunc default set.  The Request-Source header will be absent in each request unless set manually"))
-				Expect(pkgRequestSourceProviderFunc).ToNot(BeNil())
-
-				By("testing request source provider")
-				requestSource, ok := pkgRequestSourceProviderFunc(ctx)
-				Expect(requestSource).To(Equal(""))
-				Expect(ok).To(BeFalse())
-			})
-		})
 		Context("statsd failure tag", func() {
 			BeforeEach(func() {
 				pkgStatsdFailureTag = ""

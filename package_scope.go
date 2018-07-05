@@ -117,26 +117,6 @@ func ensurePackageVariables() {
 			}
 		}
 
-		// make sure the Request id provider exists
-		if pkgRequestIDProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("cbapiclient: No RequestIDProviderFunc default set.  The Request-ID header will " +
-					"be absent in each request unless set manually")
-			pkgRequestIDProviderFunc = func(ctx context.Context) (string, bool) {
-				return "", true
-			}
-		}
-
-		// make sure the request source provider exists
-		if pkgRequestSourceProviderFunc == nil {
-			logrus.WithField("type", NAME).
-				Warn("cbapiclient: No RequestSourceProviderFunc default set.  The Request-Source header " +
-					"will be absent in each request unless set manually")
-			pkgRequestSourceProviderFunc = func(ctx context.Context) (string, bool) {
-				return "", false
-			}
-		}
-
 		// ensure statsd success and failure tags exist
 		if pkgStatsdSuccessTag == "" {
 			logrus.WithField("type", NAME).Info("cbapiclient: no statsd success tag provided.  using processed:success.")

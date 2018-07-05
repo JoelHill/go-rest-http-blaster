@@ -115,12 +115,16 @@ type Client struct {
 // applyContextDependentHeaders will apply headers right before
 // the request is launched
 func (c *Client) applyContextDependentHeaders(ctx context.Context) {
-	if requestID, ok := pkgRequestIDProviderFunc(ctx); ok {
-		c.headers[requestIDHeader] = requestID
+	if pkgRequestIDProviderFunc != nil {
+		if requestID, ok := pkgRequestIDProviderFunc(ctx); ok {
+			c.headers[requestIDHeader] = requestID
+		}
 	}
 
-	if requestSource, ok := pkgRequestSourceProviderFunc(ctx); ok {
-		c.headers[requestSourceHeader] = requestSource
+	if pkgRequestSourceProviderFunc != nil {
+		if requestSource, ok := pkgRequestSourceProviderFunc(ctx); ok {
+			c.headers[requestSourceHeader] = requestSource
+		}
 	}
 }
 
