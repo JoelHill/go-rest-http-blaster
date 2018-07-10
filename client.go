@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"syscall"
 	"time"
 
@@ -262,7 +263,8 @@ func (c *Client) processResponseData(payload []byte, contentType string) error {
 
 		// if there is something that can be unmarshalled into
 		if unmarshalTo != nil {
-			if contentType == jsonType {
+			// a json content-type could be something like `application/json` or `application/json; charset=utf8`
+			if strings.Split(contentType, ";")[0] == jsonType {
 				decoder := json.NewDecoder(bytes.NewReader(payload))
 				if decodeErr := decoder.Decode(unmarshalTo); decodeErr != nil {
 					return decodeErr
