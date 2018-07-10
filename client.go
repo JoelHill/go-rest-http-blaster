@@ -339,7 +339,7 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	}
 
 	// create the internal HTTP request
-	request, createRequestErr := http.NewRequest(c.method, c.endpoint.String(), bytes.NewReader(payloadBytes))
+	request, createRequestErr := http.NewRequest(c.method, c.endpoint.String(), ioutil.NopCloser(bytes.NewReader(payloadBytes)))
 	if createRequestErr != nil {
 		return c.failBeforeRequest(createRequestErr)
 	}
@@ -366,25 +366,20 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 		switch responseErr.(type) {
 		case net.Error:
 			if responseErr.(net.Error).Timeout() {
-				c.statsdTags = append(c.statsdTags, "timeout")
+				c.statsdTags = append(c.statsdTags, "error:timeout")
 			}
 		case *net.OpError:
 			if responseErr.(*net.OpError).Op == "read" {
-				c.statsdTags = append(c.statsdTags, "connection_refused")
+				c.statsdTags = append(c.statsdTags, "error:connection_refused")
 			} else if responseErr.(*net.OpError).Op == "dial" {
-				c.statsdTags = append(c.statsdTags, "unknown_host")
+				c.statsdTags = append(c.statsdTags, "error:unknown_host")
 			}
 		case syscall.Errno:
 			if responseErr.(syscall.Errno) == syscall.ECONNREFUSED {
-				c.statsdTags = append(c.statsdTags, "connection_refused")
+				c.statsdTags = append(c.statsdTags, "error:connection_refused")
 			}
 		}
-		// if this is a timeout, make note of it
-		if timeoutErr, ok := responseErr.(net.Error); ok && timeoutErr.Timeout() {
-			c.statsdTags = append(c.statsdTags, "timeout")
-		}
 
-		c.statusCode = http.StatusInternalServerError
 		return c.failAfterRequest(responseErr)
 	}
 
@@ -399,13 +394,14 @@ func (c *Client) doInternal(ctx context.Context, payload interface{}) (int, erro
 	// ReadAll is called previously and would throw an error in http.Client.Do
 	body, _ := ioutil.ReadAll(response.Body)
 
+	// process response
+	if processResponseErr := c.processResponseData(body, response.Header.Get(contentTypeHeader)); processResponseErr != nil {
+		return c.failAfterRequest(processResponseErr)
+	}
+
 	// only keep the raw response if explicitly requested
 	if c.keepRawResponse {
 		c.rawresponse = body
-	}
-
-	if processResponseErr := c.processResponseData(body, response.Header.Get(contentTypeHeader)); processResponseErr != nil {
-		return c.failAfterRequest(processResponseErr)
 	}
 
 	c.logger.WithFields(map[string]interface{}{
