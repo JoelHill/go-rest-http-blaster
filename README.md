@@ -34,12 +34,12 @@ type Defaults struct {
 	// each outgoing request
 	UserAgent string
 
-	// StrictREQ014 will cancel any request and return an error if any of the following
+	// RequireHeaders will cancel any request and return an error if any of the following
 	// headers are missing:
 	// 		Request-ID
 	// 		Request-Source
 	// 		Calling-Service
-	StrictREQ014 bool
+	RequireHeaders bool
 
 	// StatsdRate is the statsd reporting rate
 	StatsdRate float64
@@ -55,7 +55,7 @@ will provide its own defaults:
 * `RequestIDProviderFunc` - function that provides the `Request-ID` header.  If no function is set, the `Request-ID` header will not be set
 * `RequestSourceProviderFunc`function that provides the `Request-Source` header.  If no function is set, the `Request-Source` header will not be sent.
 * `UserAgent` User supplied user-agent string.  Defaults to `[service name]-[hostname]`
-* `StrictREQ014` - will return an error if the REQ014 headers are not provided when the request is launched
+* `RequireHeaders` - will return an error if the REQ014 headers are not provided when the request is launched
 * `StatsdRate`- The statsd reporting rate.
 
 Typical usage, with [jelly](https://github.com/InVisionApp/jelly) functions:

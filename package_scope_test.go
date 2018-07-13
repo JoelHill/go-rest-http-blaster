@@ -35,7 +35,7 @@ var _ = Describe("PackageScope", func() {
 		pkgRequestIDProviderFunc = nil
 		pkgRequestSourceProviderFunc = nil
 		pkgUserAgent = ""
-		pkgStrictREQ014 = false
+		pkgRequireHeaders = false
 		pkgStatsdRate = 0
 		pkgTracerProviderFunc = nil
 
@@ -64,7 +64,7 @@ var _ = Describe("PackageScope", func() {
 		defaults = &Defaults{
 			ServiceName:               "unit-test",
 			StatsdRate:                1,
-			StrictREQ014:              true,
+			RequireHeaders:            true,
 			UserAgent:                 "unit-test",
 			RequestIDProviderFunc:     requestIDProviderFunc,
 			RequestSourceProviderFunc: requestSourceProviderFunc,
@@ -88,7 +88,7 @@ var _ = Describe("PackageScope", func() {
 				Expect(pkgStatsdRate).To(Equal(float64(1)))
 			})
 			It("sets req014 to true", func() {
-				Expect(pkgStrictREQ014).To(BeTrue())
+				Expect(pkgRequireHeaders).To(BeTrue())
 			})
 			It("sets user agent", func() {
 				Expect(pkgUserAgent).To(Equal("unit-test"))

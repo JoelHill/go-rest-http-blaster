@@ -52,7 +52,7 @@ var _ = Describe("Client", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 
-		pkgStrictREQ014 = true
+		pkgRequireHeaders = true
 		pkgUserAgent = "unit test"
 		pkgServiceName = "unit test"
 		endpointStr = "http://www.invisionapp.com"
@@ -99,7 +99,7 @@ var _ = Describe("Client", func() {
 		defaults = &Defaults{
 			ServiceName:               "unit-test",
 			StatsdRate:                1,
-			StrictREQ014:              true,
+			RequireHeaders:            true,
 			UserAgent:                 "unit-test",
 			RequestIDProviderFunc:     pkgRequestIDProviderFunc,
 			RequestSourceProviderFunc: pkgRequestSourceProviderFunc,
@@ -138,7 +138,7 @@ var _ = Describe("Client", func() {
 
 		Context("happy path - request source header missing, not required", func() {
 			JustBeforeEach(func() {
-				pkgStrictREQ014 = false
+				pkgRequireHeaders = false
 				pkgRequestSourceProviderFunc = func(ctx context.Context) (string, bool) {
 					return "", false
 				}
@@ -154,7 +154,7 @@ var _ = Describe("Client", func() {
 
 		Context("happy path - calling service header missing, not required", func() {
 			JustBeforeEach(func() {
-				pkgStrictREQ014 = false
+				pkgRequireHeaders = false
 				delete(client.headers, callingServiceHeader)
 			})
 			It("throws no errors", func() {

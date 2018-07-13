@@ -185,7 +185,7 @@ func (c *Client) conformsToReq014(request *http.Request) error {
 	}
 
 	// if we are strictly enforcing request tracing
-	if pkgStrictREQ014 && !check.ok() {
+	if pkgRequireHeaders && !check.ok() {
 		return errors.New("request tracing header requirements check failed")
 	}
 

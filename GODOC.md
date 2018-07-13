@@ -337,12 +337,12 @@ type Defaults struct {
     // each outgoing request
     UserAgent string
 
-    // StrictREQ014 will cancel any request and return an error if any of the following
+    // RequireHeaders will cancel any request and return an error if any of the following
     // headers are missing:
     // 		Request-ID
     // 		Request-Source
     // 		Calling-Service
-    StrictREQ014 bool
+    RequireHeaders bool
 
     // StatsdRate is the statsd reporting rate
     StatsdRate float64
