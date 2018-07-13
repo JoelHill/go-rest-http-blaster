@@ -72,7 +72,7 @@ import (
 const serviceName = "my-service"
 
 func main() {
-	blaster.SetDefaults(&cbapi.Defaults{
+	blaster.SetDefaults(&blaster.Defaults{
 		ServiceName:               serviceName,
 		RequestIDProviderFunc:     uuidFunc,
 	})
@@ -240,7 +240,7 @@ import (
 	"context"
 	"log"
 
-	cbapi "github.com/joelhill/go-rest-http-blaster"
+	blaster "github.com/joelhill/go-rest-http-blaster"
 )
 
 type Payload struct {
@@ -261,7 +261,7 @@ func main() {
 	ctx := context.Background()
 
 	// make you a client
-	c, err := cbapi.NewClient("http://localhost:8080/foo/bar")
+	c, err := blaster.NewClient("http://localhost:8080/foo/bar")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -290,7 +290,7 @@ import (
 	"context"
 	"log"
 
-	cbapi "github.com/joelhill/go-rest-http-blaster"
+	blaster "github.com/joelhill/go-rest-http-blaster"
 )
 
 type SuccessPayload struct {
@@ -312,7 +312,7 @@ func main() {
 	ctx := context.Background()
 
 	// make you a client
-	c, err := cbapi.NewClient("http://localhost:8080/foo/bar")
+	c, err := blaster.NewClient("http://localhost:8080/foo/bar")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}

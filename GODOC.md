@@ -1,6 +1,6 @@
 
 
-# cbapiclient
+# blaster
 `import "github.com/joelhill/go-rest-http-blaster"`
 
 * [Overview](#pkg-overview)
@@ -47,7 +47,7 @@
 
 ## <a name="pkg-constants">Constants</a>
 ``` go
-const NAME = "cbapiclient"
+const NAME = "blaster"
 ```
 NAME is the name of this library
 
