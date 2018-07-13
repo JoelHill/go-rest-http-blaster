@@ -214,7 +214,7 @@ func main() {
 	}
 	
 	// xml? it could happen ;)
-    c.SetHeader("Accept", "application/xml")
+    	c.SetHeader("Accept", "application/xml")
 	c.KeepRawResponse()
 
 	// run the request 
