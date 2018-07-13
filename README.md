@@ -1,6 +1,6 @@
-# CBAPIClient
+# go-rest-http-blaster
 
-CBAPIClient is a **Go** HTTP client that provides built-in support for circuit breakers, statsd, and open tracing.
+go-rest-http-blaster is a **Go** HTTP client that provides built-in support for circuit breakers, statsd, and open tracing.
 
 ## Usage
 
@@ -8,11 +8,8 @@ Go straight to the [examples](#examples)
 
 ### Setting Defaults
 
-It is recommended that you initialize `cbapiclient` with package-level defaults when your application bootstraps.  
-To do this, use the `Defaults` struct in the `SetDefaults` function.  The functions assigned in `Defaults` match 
-the function signatures provided by [jelly](https://github.com/InVisionApp/jelly), but any function that returns 
-the requested item with a boolean will work.  In our examples, we use the 
-[jelly](https://github.com/InVisionApp/jelly) functions.
+It is recommended that you initialize `go-rest-http-blaster` with package-level defaults when your application bootstraps.  
+To do this, use the `Defaults` struct in the `SetDefaults` function.
 
 ```go
 type Defaults struct {
@@ -49,10 +46,10 @@ type Defaults struct {
 }
 ```
 
-It is strongly recommended that you provide these defaults.  However, if they are not provided, `cbapiclient` 
+It is strongly recommended that you provide these defaults.  However, if they are not provided, `go-rest-http-blaster` 
 will provide its own defaults:
 
-* `ServiceName` - if the service name is not provided, `cbapiclient` will look for an environment variable 
+* `ServiceName` - if the service name is not provided, `go-rest-http-blaster` will look for an environment variable 
   called `SERVICE_NAME`.  If that variable doesnt exist, `cbapiclient` will fall back to `HOSTNAME`
 * `TracerProviderFunc` - The function that will wrap the request for http tracing.  No function is used if not provided
 * `RequestIDProviderFunc` - function that provides the `Request-ID` header.  If no function is set, the `Request-ID` header will not be set
@@ -69,8 +66,7 @@ package main
 import (
 	"fmt"
 	
-	"github.com/InVisionApp/cbapiclient"
-	"github.com/InVisionApp/jelly"
+	cbapiclient "github.com/joelhill/go-rest-http-blaster"
 )
 
 const serviceName = "my-service"
@@ -78,7 +74,7 @@ const serviceName = "my-service"
 func main() {
 	cbapiclient.SetDefaults(&cbapi.Defaults{
 		ServiceName:               serviceName,
-		RequestIDProviderFunc:     jelly.GetRequestID,
+		RequestIDProviderFunc:     uuidFunc,
 	})
 }
 ```
@@ -87,7 +83,7 @@ func main() {
 
 #### Using Circuit Breakers
 
-`cbapiclient` does not force you to use a circuit breaker, or, if you do, which library to use.  `cbapiclient` 
+`go-rest-http-blaster` does not force you to use a circuit breaker, or, if you do, which library to use.  `go-rest-http-blaster` 
 is built to implicitly support the [Sony GoBreaker](https://github.com/sony/gobreaker) library.  The circuit 
 breaker implementation must conform to the following interface:
 
@@ -106,7 +102,7 @@ you are sending a different content type by using the `SetContentType` function.
 
 #### Response Payloads
 
-There are two ways to access the response payload from `cbapiclient`.  If you want to access the raw bytes 
+There are two ways to access the response payload from `go-rest-http-blaster`.  If you want to access the raw bytes 
 returned in the response, or if you are not expecting a JSON response payload, you can use the `RawResponse`
 function to access the response bytes.
 
@@ -130,7 +126,7 @@ differently depending on what you're trying to do:
 	
 		## Convenience Functions	
 
-`cbapiclient` provides the following functions for convenience:
+`go-rest-http-blaster` provides the following functions for convenience:
 
 * `Get` - perform an HTTP GET request with no outgoing payload
 * `Post` - perform an HTTP POST request with an outgoing payload
@@ -167,7 +163,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/InVisionApp/cbapiclient"
+	cbapiclient "github.com/joelhill/go-rest-http-blaster"
 )
 
 type ResponsePayload struct {
@@ -205,7 +201,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/InVisionApp/cbapiclient"
+	cbapiclient "github.com/joelhill/go-rest-http-blaster"
 )
 
 func main() {
@@ -244,7 +240,7 @@ import (
 	"context"
 	"log"
 
-	cbapi "github.com/InVisionApp/cbapiclient"
+	cbapi "github.com/joelhill/go-rest-http-blaster"
 )
 
 type Payload struct {
@@ -294,7 +290,7 @@ import (
 	"context"
 	"log"
 
-	cbapi "github.com/InVisionApp/cbapiclient"
+	cbapi "github.com/joelhill/go-rest-http-blaster"
 )
 
 type SuccessPayload struct {
