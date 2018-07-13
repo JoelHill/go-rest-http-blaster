@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestCbapiclient(t *testing.T) {
+func TestBlaster(t *testing.T) {
 	os.Setenv("MOCKING_HTTP", "true")
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cbapiclient Suite")
+	RunSpecs(t, "Blaster Suite")
 }
