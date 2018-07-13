@@ -1,4 +1,4 @@
-package cbapiclient
+package blaster
 
 import (
 	"bytes"
@@ -37,7 +37,7 @@ const (
 )
 
 // NAME is the name of this library
-const NAME = "cbapiclient"
+const NAME = "blaster"
 
 // region STRUCT
 
@@ -277,7 +277,7 @@ func (c *Client) processResponseData(payload []byte, contentType string) error {
 				c.rawresponse = payload
 				c.logger.WithFields(map[string]interface{}{
 					"type": NAME,
-				}).Warn("cbapiclient: received a non-json response where a json type was expected")
+				}).Warn("blaster: received a non-json response where a json type was expected")
 
 				c.statusCode = http.StatusUnprocessableEntity
 			}

@@ -115,5 +115,5 @@
 			"versionExact": "master"
 		}
 	],
-	"rootPath": "github.com/InVisionApp/cbapiclient"
+	"rootPath": "github.com/joelhill/go-rest-http-blaster"
 }

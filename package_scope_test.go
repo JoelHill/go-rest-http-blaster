@@ -1,4 +1,4 @@
-package cbapiclient
+package blaster
 
 import (
 	"bytes"

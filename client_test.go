@@ -1,4 +1,4 @@
-package cbapiclient
+package blaster
 
 import (
 	"bytes"
@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/InVisionApp/cbapiclient/fakes"
 	"github.com/InVisionApp/go-logger"
 	"github.com/InVisionApp/go-logger/shims/testlog"
+	"github.com/joelhill/go-rest-http-blaster/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opentracing/opentracing-go"

@@ -1,9 +1,6 @@
-package cbapiclient
+package blaster
 
 // req014HeaderCheck will check for the presence of required outgoing
-// headers per the InVision REQ014 documentation
-//
-// @see https://invision-engineering.herokuapp.com/requirements/REQ014/index.html
 type req014HeaderCheck struct {
 	requestIDOK      bool
 	requestSourceOK  bool

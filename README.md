@@ -50,7 +50,7 @@ It is strongly recommended that you provide these defaults.  However, if they ar
 will provide its own defaults:
 
 * `ServiceName` - if the service name is not provided, `go-rest-http-blaster` will look for an environment variable 
-  called `SERVICE_NAME`.  If that variable doesnt exist, `cbapiclient` will fall back to `HOSTNAME`
+  called `SERVICE_NAME`.  If that variable doesnt exist, `blaster` will fall back to `HOSTNAME`
 * `TracerProviderFunc` - The function that will wrap the request for http tracing.  No function is used if not provided
 * `RequestIDProviderFunc` - function that provides the `Request-ID` header.  If no function is set, the `Request-ID` header will not be set
 * `RequestSourceProviderFunc`function that provides the `Request-Source` header.  If no function is set, the `Request-Source` header will not be sent.
@@ -66,13 +66,13 @@ package main
 import (
 	"fmt"
 	
-	cbapiclient "github.com/joelhill/go-rest-http-blaster"
+	blaster "github.com/joelhill/go-rest-http-blaster"
 )
 
 const serviceName = "my-service"
 
 func main() {
-	cbapiclient.SetDefaults(&cbapi.Defaults{
+	blaster.SetDefaults(&cbapi.Defaults{
 		ServiceName:               serviceName,
 		RequestIDProviderFunc:     uuidFunc,
 	})
@@ -97,7 +97,7 @@ To set the circuit breaker, use the `SetCircuitBreaker` function.
 
 #### Content Type
 
-By default, `cbapiclient` sets the `Content-Type` header to `application/json`.  You may override this header if 
+By default, `blaster` sets the `Content-Type` header to `application/json`.  You may override this header if 
 you are sending a different content type by using the `SetContentType` function.
 
 #### Response Payloads
@@ -106,7 +106,7 @@ There are two ways to access the response payload from `go-rest-http-blaster`.  
 returned in the response, or if you are not expecting a JSON response payload, you can use the `RawResponse`
 function to access the response bytes.
 
-The more common way to access the payload is to use one of the `Saturate` functions.  You provide `cbapiclient` 
+The more common way to access the payload is to use one of the `Saturate` functions.  You provide `blaster` 
 with an empty struct pointer, and it will be saturated when the response returns.  Each works slightly 
 differently depending on what you're trying to do:
 
@@ -116,7 +116,7 @@ differently depending on what you're trying to do:
 * `WillSaturateOnError`
 	* Use this function to saturate the struct you expect when the request fails.  **A request is considered a 
 	failure if the response code is below 200 or above 299**.  Also note that this struct will only be saturated 
-	if the actual response is an error.  **`cbapiclient` _will not saturate any response if the error originated 
+	if the actual response is an error.  **`blaster` _will not saturate any response if the error originated 
 	at the caller_**.
 * `WillSaturateWithStatusCode`
 	* Use this function to saturate the struct you expect when a specific status code is returned.  
@@ -163,7 +163,7 @@ import (
 	"context"
 	"log"
 
-	cbapiclient "github.com/joelhill/go-rest-http-blaster"
+	blaster "github.com/joelhill/go-rest-http-blaster"
 )
 
 type ResponsePayload struct {
@@ -175,7 +175,7 @@ func main() {
 	ctx := context.Background()
 
 	// make you a client
-	c, err := cbapiclient.NewClient("http://localhost:8080/foo/bar")
+	c, err := blaster.NewClient("http://localhost:8080/foo/bar")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -201,14 +201,14 @@ import (
 	"context"
 	"log"
 
-	cbapiclient "github.com/joelhill/go-rest-http-blaster"
+	blaster "github.com/joelhill/go-rest-http-blaster"
 )
 
 func main() {
 	ctx := context.Background()
 
 	// make you a client
-	c, err := cbapiclient.NewClient("http://localhost:8080/foo/bar/xml")
+	c, err := blaster.NewClient("http://localhost:8080/foo/bar/xml")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}

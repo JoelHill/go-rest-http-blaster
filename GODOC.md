@@ -1,7 +1,7 @@
 
 
 # cbapiclient
-`import "github.com/InVisionApp/cbapiclient"`
+`import "github.com/joelhill/go-rest-http-blaster"`
 
 * [Overview](#pkg-overview)
 * [Index](#pkg-index)
@@ -42,7 +42,7 @@
 
 
 #### <a name="pkg-files">Package files</a>
-[client.go](https://github.com/InVisionApp/cbapiclient/blob/master/client.go) [ifaces.go](https://github.com/InVisionApp/cbapiclient/blob/master/ifaces.go) [invision_req014.go](https://github.com/InVisionApp/cbapiclient/blob/master/invision_req014.go) [logrus_shim.go](https://github.com/InVisionApp/cbapiclient/blob/master/logrus_shim.go) [package_scope.go](https://github.com/InVisionApp/cbapiclient/blob/master/package_scope.go) 
+[client.go](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go) [ifaces.go](https://github.com/joelhill/go-rest-http-blaster/blob/master/ifaces.go) [invision_req014.go](https://github.com/joelhill/go-rest-http-blaster/blob/master/invision_req014.go) [logrus_shim.go](https://github.com/joelhill/go-rest-http-blaster/blob/master/logrus_shim.go) [package_scope.go](https://github.com/joelhill/go-rest-http-blaster/blob/master/package_scope.go) 
 
 
 ## <a name="pkg-constants">Constants</a>
@@ -54,7 +54,7 @@ NAME is the name of this library
 
 
 
-## <a name="SetDefaults">func</a> [SetDefaults](https://github.com/InVisionApp/cbapiclient/blob/master/package_scope.go?s=5183:5219#L155)
+## <a name="SetDefaults">func</a> [SetDefaults](https://github.com/joelhill/go-rest-http-blaster/blob/master/package_scope.go?s=5183:5219#L155)
 ``` go
 func SetDefaults(defaults *Defaults)
 ```
@@ -64,7 +64,7 @@ be used on all requests
 
 
 
-## <a name="CircuitBreakerPrototype">type</a> [CircuitBreakerPrototype](https://github.com/InVisionApp/cbapiclient/blob/master/ifaces.go?s=392:493#L13)
+## <a name="CircuitBreakerPrototype">type</a> [CircuitBreakerPrototype](https://github.com/joelhill/go-rest-http-blaster/blob/master/ifaces.go?s=392:493#L13)
 ``` go
 type CircuitBreakerPrototype interface {
     Execute(func() (interface{}, error)) (interface{}, error)
@@ -81,7 +81,7 @@ CircuitBreakerPrototype defines the circuit breaker Execute function signature
 
 
 
-## <a name="Client">type</a> [Client](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=1469:3120#L44)
+## <a name="Client">type</a> [Client](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=1469:3120#L44)
 ``` go
 type Client struct {
     // contains filtered or unexported fields
@@ -95,7 +95,7 @@ Client encapsulates the http Request functionality
 
 
 
-### <a name="NewClient">func</a> [NewClient](https://github.com/InVisionApp/cbapiclient/blob/master/package_scope.go?s=6680:6723#L200)
+### <a name="NewClient">func</a> [NewClient](https://github.com/joelhill/go-rest-http-blaster/blob/master/package_scope.go?s=6680:6723#L200)
 ``` go
 func NewClient(uri string) (*Client, error)
 ```
@@ -107,7 +107,7 @@ to application/json
 
 
 
-### <a name="Client.Delete">func</a> (\*Client) [Delete](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18452:18530#L610)
+### <a name="Client.Delete">func</a> (\*Client) [Delete](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=18452:18530#L610)
 ``` go
 func (c *Client) Delete(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -116,7 +116,7 @@ Delete performs an HTTP DELETE request
 
 
 
-### <a name="Client.Do">func</a> (\*Client) [Do](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=12613:12702#L419)
+### <a name="Client.Do">func</a> (\*Client) [Do](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=12613:12702#L419)
 ``` go
 func (c *Client) Do(ctx context.Context, method string, payload interface{}) (int, error)
 ```
@@ -126,7 +126,7 @@ or from within a circuit breaker
 
 
 
-### <a name="Client.Duration">func</a> (\*Client) [Duration](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17457:17498#L574)
+### <a name="Client.Duration">func</a> (\*Client) [Duration](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=17457:17498#L574)
 ``` go
 func (c *Client) Duration() time.Duration
 ```
@@ -136,7 +136,7 @@ int64 nanosecond count
 
 
 
-### <a name="Client.Get">func</a> (\*Client) [Get](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17651:17705#L584)
+### <a name="Client.Get">func</a> (\*Client) [Get](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=17651:17705#L584)
 ``` go
 func (c *Client) Get(ctx context.Context) (int, error)
 ```
@@ -145,7 +145,7 @@ Get performs an HTTP GET request
 
 
 
-### <a name="Client.KeepRawResponse">func</a> (\*Client) [KeepRawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=13758:13792#L462)
+### <a name="Client.KeepRawResponse">func</a> (\*Client) [KeepRawResponse](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=13758:13792#L462)
 ``` go
 func (c *Client) KeepRawResponse()
 ```
@@ -155,7 +155,7 @@ to be retained
 
 
 
-### <a name="Client.Patch">func</a> (\*Client) [Patch](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18252:18329#L603)
+### <a name="Client.Patch">func</a> (\*Client) [Patch](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=18252:18329#L603)
 ``` go
 func (c *Client) Patch(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -164,7 +164,7 @@ Patch performs an HTTP PATCH request with the specified payload
 
 
 
-### <a name="Client.Post">func</a> (\*Client) [Post](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17815:17891#L589)
+### <a name="Client.Post">func</a> (\*Client) [Post](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=17815:17891#L589)
 ``` go
 func (c *Client) Post(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -173,7 +173,7 @@ Post performs an HTTP POST request with the specified payload
 
 
 
-### <a name="Client.Put">func</a> (\*Client) [Put](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=18033:18108#L596)
+### <a name="Client.Put">func</a> (\*Client) [Put](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=18033:18108#L596)
 ``` go
 func (c *Client) Put(ctx context.Context, payload interface{}) (int, error)
 ```
@@ -182,7 +182,7 @@ Put performs an HTTP PUT request with the specified payload
 
 
 
-### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=13910:13947#L468)
+### <a name="Client.RawResponse">func</a> (\*Client) [RawResponse](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=13910:13947#L468)
 ``` go
 func (c *Client) RawResponse() []byte
 ```
@@ -192,7 +192,7 @@ in the http response
 
 
 
-### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=16259:16321#L531)
+### <a name="Client.SetCircuitBreaker">func</a> (\*Client) [SetCircuitBreaker](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=16259:16321#L531)
 ``` go
 func (c *Client) SetCircuitBreaker(cb CircuitBreakerPrototype)
 ```
@@ -202,7 +202,7 @@ wraps the http request.
 
 
 
-### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=16984:17026#L552)
+### <a name="Client.SetContentType">func</a> (\*Client) [SetContentType](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=16984:17026#L552)
 ``` go
 func (c *Client) SetContentType(ct string)
 ```
@@ -215,7 +215,7 @@ must be a byte slice or it must be convertible to a byte slice
 
 
 
-### <a name="Client.SetHeader">func</a> (\*Client) [SetHeader](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=17217:17269#L563)
+### <a name="Client.SetHeader">func</a> (\*Client) [SetHeader](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=17217:17269#L563)
 ``` go
 func (c *Client) SetHeader(key string, value string)
 ```
@@ -224,7 +224,7 @@ SetHeader allows for custom http headers
 
 
 
-### <a name="Client.SetLogger">func</a> (\*Client) [SetLogger](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=14366:14411#L484)
+### <a name="Client.SetLogger">func</a> (\*Client) [SetLogger](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=14366:14411#L484)
 ``` go
 func (c *Client) SetLogger(logger log.Logger)
 ```
@@ -234,7 +234,7 @@ If no logger is set, a no-op logger will be used
 
 
 
-### <a name="Client.SetStatsdDelegate">func</a> (\*Client) [SetStatsdDelegate](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=16406:16500#L536)
+### <a name="Client.SetStatsdDelegate">func</a> (\*Client) [SetStatsdDelegate](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=16406:16500#L536)
 ``` go
 func (c *Client) SetStatsdDelegate(sdClient StatsdClientPrototype, stat string, tags []string)
 ```
@@ -243,7 +243,7 @@ SetStatsdDelegate will set the statsd client, the stat, and tags
 
 
 
-### <a name="Client.SetTimeoutMS">func</a> (\*Client) [SetTimeoutMS](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=14121:14173#L474)
+### <a name="Client.SetTimeoutMS">func</a> (\*Client) [SetTimeoutMS](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=14121:14173#L474)
 ``` go
 func (c *Client) SetTimeoutMS(timeout time.Duration)
 ```
@@ -253,7 +253,7 @@ a request to complete.  The default request timeout is 8 seconds (8000 ms)
 
 
 
-### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=14529:14570#L490)
+### <a name="Client.StatusCodeIsError">func</a> (\*Client) [StatusCodeIsError](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=14529:14570#L490)
 ``` go
 func (c *Client) StatusCodeIsError() bool
 ```
@@ -263,7 +263,7 @@ considered an error
 
 
 
-### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=14903:14951#L499)
+### <a name="Client.WillSaturate">func</a> (\*Client) [WillSaturate](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=14903:14951#L499)
 ``` go
 func (c *Client) WillSaturate(proto interface{})
 ```
@@ -276,7 +276,7 @@ returned in the response instead
 
 
 
-### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=15374:15429#L509)
+### <a name="Client.WillSaturateOnError">func</a> (\*Client) [WillSaturateOnError](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=15374:15429#L509)
 ``` go
 func (c *Client) WillSaturateOnError(proto interface{})
 ```
@@ -290,7 +290,7 @@ as any response with a status code not in the 2XX range.
 
 
 
-### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](https://github.com/InVisionApp/cbapiclient/blob/master/client.go?s=15950:16028#L521)
+### <a name="Client.WillSaturateWithStatusCode">func</a> (\*Client) [WillSaturateWithStatusCode](https://github.com/joelhill/go-rest-http-blaster/blob/master/client.go?s=15950:16028#L521)
 ``` go
 func (c *Client) WillSaturateWithStatusCode(statusCode int, proto interface{})
 ```
@@ -306,7 +306,7 @@ unless specified here.
 
 
 
-## <a name="Defaults">type</a> [Defaults](https://github.com/InVisionApp/cbapiclient/blob/master/package_scope.go?s=235:2016#L18)
+## <a name="Defaults">type</a> [Defaults](https://github.com/joelhill/go-rest-http-blaster/blob/master/package_scope.go?s=235:2016#L18)
 ``` go
 type Defaults struct {
     // ServiceName is the name of the calling service
@@ -365,7 +365,7 @@ Defaults is a container for setting package level values
 
 
 
-## <a name="IClient">type</a> [IClient](https://github.com/InVisionApp/cbapiclient/blob/master/ifaces.go?s=795:1663#L24)
+## <a name="IClient">type</a> [IClient](https://github.com/joelhill/go-rest-http-blaster/blob/master/ifaces.go?s=795:1663#L24)
 ``` go
 type IClient interface {
     Delete(ctx context.Context, payload interface{}) (int, error)
@@ -400,7 +400,7 @@ IClient - interface for the cb api client
 
 
 
-## <a name="StatsdClientPrototype">type</a> [StatsdClientPrototype](https://github.com/InVisionApp/cbapiclient/blob/master/ifaces.go?s=577:748#L18)
+## <a name="StatsdClientPrototype">type</a> [StatsdClientPrototype](https://github.com/joelhill/go-rest-http-blaster/blob/master/ifaces.go?s=577:748#L18)
 ``` go
 type StatsdClientPrototype interface {
     Incr(name string, tags []string, rate float64) error
